@@ -1,0 +1,24 @@
+{
+  "name": "amanbot",
+  "version": "1.0.0",
+  "description": "Discord trading bot with SMC alerts, chart rendering, options flow, and community features",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "register-commands": "node src/scripts/registerCommands.js",
+    "test-apis": "node src/scripts/testApis.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3",
+    "pg": "^8.13.1"
+  }
+}
