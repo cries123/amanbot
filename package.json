@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "register-commands": "node src/scripts/registerCommands.js"
+    "register-commands": "node src/scripts/registerCommands.js",
+    "test-apis": "node src/scripts/testApis.js"
   },
   "engines": {
     "node": ">=20.0.0"
