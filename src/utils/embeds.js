@@ -22,7 +22,7 @@ const BEAR_COLOR = 0xe74c3c;
 export function buildWickLevelEmbed({ ticker, level, timeframe = '1h' }) {
   const isEql = level.structure === 'EQL';
   const touchList = (level.touchTimes ?? [])
-    .map((t) => formatEtTime(t))
+    .map((t) => formatEstTime(t))
     .join('\n');
 
   return new EmbedBuilder()
@@ -32,8 +32,8 @@ export function buildWickLevelEmbed({ ticker, level, timeframe = '1h' }) {
       { name: 'Wick Zone', value: `\`$${level.zoneLow.toFixed(2)} – $${level.zoneHigh.toFixed(2)}\``, inline: false },
       { name: 'Touches', value: String(level.touches), inline: true },
       { name: 'Timeframe', value: `\`${timeframe}\``, inline: true },
-      { name: 'Last Touch (ET)', value: formatEtTime(level.formationTime), inline: true },
-      { name: 'Touch Times (ET)', value: touchList || 'N/A', inline: false },
+      { name: 'Last Touch (EST)', value: formatEstTime(level.formationTime), inline: true },
+      { name: 'Touch Times (EST)', value: touchList || 'N/A', inline: false },
     )
     .setFooter({ text: `Yahoo Finance • ${timeframe}` })
     .setTimestamp(level.formationTime ? new Date(level.formationTime * 1000) : new Date());
@@ -63,7 +63,7 @@ export function buildSmcAlertEmbed({ ticker, signal, timeframe = '5m' }) {
       { name: 'Spread', value: `\`$${signal.spread.toFixed(2)}\` (≤ $${signal.tolerance.toFixed(2)})`, inline: true },
       { name: 'Touches', value: String(signal.touches), inline: true },
       { name: 'Status', value: signal.swept ? '**Swept**' : 'Formed', inline: true },
-      { name: 'Formed At (ET)', value: signal.formationTime ? formatEtTime(signal.formationTime) : 'N/A', inline: true },
+      { name: 'Formed At (EST)', value: signal.formationTime ? formatEstTime(signal.formationTime) : 'N/A', inline: true },
       { name: 'Close', value: `\`$${signal.price.toFixed(2)}\``, inline: true },
       { name: 'Timeframe', value: `\`${timeframe}\``, inline: true },
     );
