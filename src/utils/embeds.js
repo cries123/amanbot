@@ -177,24 +177,18 @@ const SOCIAL_PLATFORMS = [
     emoji: '📸',
     handle: '@amantradesss',
     url: 'https://www.instagram.com/amantradesss',
-    tagline: 'Charts, setups & daily market clips',
-    icon: 'https://cdn.simpleicons.org/instagram/white',
   },
   {
     name: 'X',
     emoji: '𝕏',
     handle: '@amantradesss',
     url: 'https://x.com/amantradesss',
-    tagline: 'Real-time thoughts & trade alerts',
-    icon: 'https://cdn.simpleicons.org/x/white',
   },
   {
     name: 'YouTube',
     emoji: '▶️',
     handle: '@amantradess',
     url: 'https://www.youtube.com/@amantradess',
-    tagline: 'Full breakdowns & educational content',
-    icon: 'https://cdn.simpleicons.org/youtube/white',
   },
 ];
 
@@ -205,17 +199,16 @@ export function buildSocialEmbeds() {
       iconURL: 'https://cdn.simpleicons.org/chartline/FFD700',
     })
     .setTitle('Official Socials')
-    .setDescription('Follow for charts, flow, and market breakdowns.')
     .setColor(0x0f0f1a)
     .setThumbnail('https://cdn.simpleicons.org/chartline/FFD700')
     .addFields(
       SOCIAL_PLATFORMS.map((platform) => ({
         name: `${platform.emoji} ${platform.name}`,
-        value: `[${platform.handle}](${platform.url})\n*${platform.tagline}*`,
+        value: `[${platform.handle}](${platform.url})`,
         inline: true,
       })),
     )
-    .setFooter({ text: 'Aman Trades • Tap a link to follow' })
+    .setFooter({ text: 'Tap a link to follow' })
     .setTimestamp();
 
   return [embed];
