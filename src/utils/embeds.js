@@ -25,18 +25,27 @@ export function buildWickLevelEmbed({ ticker, level, timeframe = '1h' }) {
     .map((t) => formatEstTime(t))
     .join('\n');
 
+  const fields = [
+    { name: 'Wick Zone', value: `\`$${level.zoneLow.toFixed(2)} – $${level.zoneHigh.toFixed(2)}\``, inline: false },
+    { name: 'Touches', value: String(level.touches), inline: true },
+    { name: 'Timeframe', value: `\`${timeframe}\``, inline: true },
+    { name: 'Status', value: level.swept ? '**Swept**' : 'Active', inline: true },
+    { name: 'Last Touch (EST)', value: formatEstTime(level.formationTime), inline: true },
+    { name: 'Touch Times (EST)', value: touchList || 'N/A', inline: false },
+  ];
+
+  if (level.swept && level.barTime) {
+    fields.splice(5, 0, { name: 'Swept At (EST)', value: formatEstTime(level.barTime), inline: true });
+  }
+
   return new EmbedBuilder()
     .setTitle(`${ticker} — ${level.setupType}`)
-    .setColor(isEql ? 0x2ecc71 : 0xe74c3c)
-    .addFields(
-      { name: 'Wick Zone', value: `\`$${level.zoneLow.toFixed(2)} – $${level.zoneHigh.toFixed(2)}\``, inline: false },
-      { name: 'Touches', value: String(level.touches), inline: true },
-      { name: 'Timeframe', value: `\`${timeframe}\``, inline: true },
-      { name: 'Last Touch (EST)', value: formatEstTime(level.formationTime), inline: true },
-      { name: 'Touch Times (EST)', value: touchList || 'N/A', inline: false },
-    )
+    .setColor(level.swept ? (isEql ? 0x27ae60 : 0xc0392b) : (isEql ? 0x2ecc71 : 0xe74c3c))
+    .addFields(fields)
     .setFooter({ text: `Yahoo Finance • ${timeframe}` })
-    .setTimestamp(level.formationTime ? new Date(level.formationTime * 1000) : new Date());
+    .setTimestamp(level.swept && level.barTime
+      ? new Date(level.barTime * 1000)
+      : (level.formationTime ? new Date(level.formationTime * 1000) : new Date()));
 }
 
 export function buildSmcAlertEmbed({ ticker, signal, timeframe = '5m' }) {
