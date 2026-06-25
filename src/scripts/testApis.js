@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import axios from 'axios';
-import { fetchChartImage, scanTickerSmcFlow } from '../services/finnhub.js';
+import { fetchChartImage } from '../services/finnhub.js';
 import { fetchTickerNews } from '../services/news.js';
+import { scanTickerHistory } from '../services/smcScanner.js';
 
 const results = [];
 
@@ -57,17 +58,12 @@ async function testFinnhubChart() {
   }
 }
 
-async function testFinnhubFlow() {
-  if (!process.env.FINNHUB_API_KEY || process.env.FINNHUB_API_KEY.includes('your_')) {
-    fail('Finnhub Flow', 'FINNHUB_API_KEY missing');
-    return;
-  }
-
+async function testYahooSmc() {
   try {
-    const { diagnostics, signals } = await scanTickerSmcFlow('SPY', { timeframe: '5m', tolerance: 0.05 });
-    pass('Finnhub EQH/EQL', `Connected — ${diagnostics.eqhClusters} EQH, ${diagnostics.eqlClusters} EQL, ${signals.length} signals`);
+    const result = await scanTickerHistory('SPY');
+    pass('Yahoo SMC', `${result.candles.length} bars on ${result.tradingDate}, ${result.signals.length} setup(s)`);
   } catch (err) {
-    fail('Finnhub EQH/EQL', err.message);
+    fail('Yahoo SMC', err.message);
   }
 }
 
@@ -109,7 +105,7 @@ console.log('\n🔍 AmanBot API Key Test\n');
 testDiscordEnv();
 await testFinnhub();
 await testFinnhubChart();
-await testFinnhubFlow();
+await testYahooSmc();
 await testFinnhubNews();
 
 for (const { name, ok, detail } of results) {

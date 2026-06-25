@@ -16,6 +16,42 @@ const SMC_LABELS = {
   FVG_FILL: 'Fair Value Gap Filled',
 };
 
+const BULL_COLOR = 0x2ecc71;
+const BEAR_COLOR = 0xe74c3c;
+
+export function buildSmcAlertEmbed({ ticker, signal, timeframe = '5m' }) {
+  const isBullish = signal.direction === 'bullish';
+  const color = isBullish ? BULL_COLOR : BEAR_COLOR;
+  const title = `${ticker} - ${signal.setupType} Detected`;
+
+  const embed = new EmbedBuilder()
+    .setTitle(title)
+    .setColor(color)
+    .setTimestamp(signal.barTime ? new Date(signal.barTime * 1000) : new Date());
+
+  if (signal.type === 'BULL_FVG' || signal.type === 'BEAR_FVG') {
+    embed.addFields(
+      { name: 'Gap Zone', value: `\`$${signal.zoneLow.toFixed(2)} – $${signal.zoneHigh.toFixed(2)}\``, inline: false },
+      { name: 'Gap Size', value: `\`${signal.gapPct.toFixed(3)}%\``, inline: true },
+      { name: 'Close', value: `\`$${signal.price.toFixed(2)}\``, inline: true },
+      { name: 'Timeframe', value: `\`${timeframe}\``, inline: true },
+    );
+  } else {
+    embed.addFields(
+      { name: 'Structure Level', value: `\`$${signal.level.toFixed(2)}\``, inline: true },
+      { name: 'Pivot Zone', value: `\`$${signal.zoneLow.toFixed(2)} – $${signal.zoneHigh.toFixed(2)}\``, inline: true },
+      { name: 'Spread', value: `\`${signal.spreadPct.toFixed(3)}%\``, inline: true },
+      { name: 'Touches', value: String(signal.touches), inline: true },
+      { name: 'Status', value: signal.swept ? '**Swept**' : 'Formed', inline: true },
+      { name: 'Close', value: `\`$${signal.price.toFixed(2)}\``, inline: true },
+      { name: 'Timeframe', value: `\`${timeframe}\``, inline: true },
+    );
+  }
+
+  embed.setFooter({ text: 'Yahoo Finance SMC Scanner • 5m' });
+  return embed;
+}
+
 export function buildSmcEmbed(payload) {
   const eventType = normalizeEventType(payload);
   const color = SMC_COLORS[eventType] ?? SMC_COLORS.DEFAULT;

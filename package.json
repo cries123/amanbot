@@ -9,7 +9,8 @@
     "dev": "node --watch src/index.js",
     "register-commands": "node src/scripts/registerCommands.js",
     "test-apis": "node src/scripts/testApis.js",
-    "test-flow": "node src/scripts/testFlow.js"
+    "test-flow": "node src/scripts/testFlow.js",
+    "test-smc": "node src/scripts/testSmc.js"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -20,6 +21,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "node-cron": "^3.0.3",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "yahoo-finance2": "2.13.3"
   }
 }

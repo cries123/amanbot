@@ -1,39 +1,28 @@
 import 'dotenv/config';
 import { config } from '../config.js';
-import { scanTickerSmcFlow } from '../services/finnhub.js';
+import { scanTickerLive } from '../services/smcScanner.js';
 
 const ticker = process.argv[2] ?? 'SPY';
 
-if (!config.apis.finnhub) {
-  console.error('❌ FINNHUB_API_KEY missing in .env');
-  process.exit(1);
-}
-
-console.log(`\n🔍 Testing EQH/EQL scan for ${ticker} (tolerance $${config.monitors.eqhEqlTolerance})...\n`);
+console.log(`\n🔍 Testing live SMC scan for ${ticker}...\n`);
+console.log(`   EQH/EQL tolerance: ${config.monitors.eqhEqlTolerancePct}%`);
+console.log(`   FVG min gap:       ${config.monitors.fvgMinGapPct}%\n`);
 
 try {
-  const { signals, diagnostics, symbol } = await scanTickerSmcFlow(ticker, {
-    timeframe: '5m',
-    tolerance: config.monitors.eqhEqlTolerance,
-  });
+  const { signals, candles, label } = await scanTickerLive(ticker);
 
-  console.log(`✅ Finnhub connected`);
-  console.log(`   Symbol:            ${symbol}`);
-  console.log(`   Bars scanned:      ${diagnostics.bars}`);
-  console.log(`   Swing highs/lows:  ${diagnostics.swingHighs} / ${diagnostics.swingLows}`);
-  console.log(`   EQH clusters:      ${diagnostics.eqhClusters}`);
-  console.log(`   EQL clusters:      ${diagnostics.eqlClusters}`);
-  console.log(`   Total signals:     ${signals.length}`);
-  console.log(`   Sweeps:            ${signals.filter((s) => s.swept).length}`);
+  console.log(`✅ Yahoo Finance connected`);
+  console.log(`   Symbol:            ${label}`);
+  console.log(`   Closed bars:       ${candles.length}`);
+  console.log(`   Live signals:      ${signals.length}`);
 
   if (signals.length > 0) {
-    for (const s of signals.slice(0, 3)) {
-      console.log(`\n   ${s.type} @ $${s.level.toFixed(2)} (${s.touches} touches, spread $${s.spread.toFixed(2)})`);
+    for (const s of signals) {
+      console.log(`\n   ${s.setupType} (${s.type})`);
     }
-    console.log('\n✅ EQH/EQL scan is working!\n');
-  } else if (diagnostics.bars > 0) {
-    console.log('\n⚠️  Connected but no EQH/EQL clusters within tolerance right now.');
-    console.log('   Try during market hours or a different ticker.\n');
+    console.log('\n✅ Live SMC scan is working!\n');
+  } else if (candles.length > 0) {
+    console.log('\n⚠️  Connected but no new setups on the latest closed 5m bar.\n');
   } else {
     console.log('\n❌ No candle data returned.\n');
     process.exit(1);
