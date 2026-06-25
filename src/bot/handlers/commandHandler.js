@@ -10,9 +10,14 @@ export async function loadCommands() {
   const files = readdirSync(join(__dirname, '../commands')).filter((f) => f.endsWith('.js'));
 
   for (const file of files) {
-    const command = await import(`../commands/${file}`);
-    if (command.data && command.execute) {
-      commands.set(command.data.name, command);
+    try {
+      const command = await import(`../commands/${file}`);
+      if (command.data && command.execute) {
+        commands.set(command.data.name, command);
+      }
+    } catch (err) {
+      console.warn(`[commands] Skipped ${file} — ${err.message}`);
+      console.warn(`[commands] Delete src/bot/commands/${file} if this command was removed from the repo.`);
     }
   }
 
