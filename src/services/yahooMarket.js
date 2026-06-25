@@ -1,4 +1,4 @@
-import yahooFinance from 'yahoo-finance2';
+import axios from 'axios';
 import { normalizeCandles } from '../utils/smcStructure.js';
 
 export const SMC_TICKERS = [
@@ -9,6 +9,52 @@ export const SMC_TICKERS = [
 
 const TICKER_MAP = Object.fromEntries(SMC_TICKERS.map((t) => [t.label, t.symbol]));
 
+const YAHOO_HOSTS = [
+  'https://query1.finance.yahoo.com',
+  'https://query2.finance.yahoo.com',
+];
+
+const YAHOO_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+};
+
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const MIN_REQUEST_GAP_MS = 2_000;
+const MAX_RETRIES = 4;
+
+const cache = new Map();
+let lastRequestAt = 0;
+let requestChain = Promise.resolve();
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function toUnixSeconds(value) {
+  if (value instanceof Date) return Math.floor(value.getTime() / 1000);
+  return value;
+}
+
+function isRateLimitError(err) {
+  const msg = String(err?.message ?? err).toLowerCase();
+  return msg.includes('too many requests')
+    || msg.includes('rate limit')
+    || msg.includes('429')
+    || msg.includes('not valid json');
+}
+
+function queueYahooRequest(task) {
+  const run = requestChain.then(task, task);
+  requestChain = run.catch(() => {});
+  return run;
+}
+
+async function throttle() {
+  const wait = MIN_REQUEST_GAP_MS - (Date.now() - lastRequestAt);
+  if (wait > 0) await sleep(wait);
+  lastRequestAt = Date.now();
+}
+
 export function resolveSymbol(input) {
   const upper = input?.toUpperCase().trim();
   if (TICKER_MAP[upper]) return { label: upper, symbol: TICKER_MAP[upper] };
@@ -16,30 +62,91 @@ export function resolveSymbol(input) {
   return { label: upper, symbol: upper };
 }
 
-export async function fetchChartCandles(symbol, { interval = '5m', period1, period2 } = {}) {
-  const chart = await yahooFinance.chart(symbol, {
-    period1,
-    period2,
-    interval,
+async function fetchYahooChartDirect(symbol, { interval = '5m', period1, period2 }, hostIndex = 0) {
+  const host = YAHOO_HOSTS[hostIndex] ?? YAHOO_HOSTS[0];
+  const { data, status } = await axios.get(`${host}/v8/finance/chart/${encodeURIComponent(symbol)}`, {
+    params: {
+      interval,
+      period1: toUnixSeconds(period1),
+      period2: toUnixSeconds(period2),
+      includePrePost: false,
+    },
+    headers: YAHOO_HEADERS,
+    timeout: 25_000,
+    validateStatus: () => true,
   });
 
-  const quotes = chart?.quotes ?? [];
-  const candles = normalizeCandles(
-    quotes.map((q) => ({
-      date: q.date,
-      open: q.open,
-      high: q.high,
-      low: q.low,
-      close: q.close,
-      volume: q.volume,
-    })),
-  );
+  if (status === 429) {
+    throw new Error('Yahoo Finance rate limit (429) — wait a minute and try again');
+  }
 
-  if (candles.length === 0) {
+  if (status >= 400) {
+    throw new Error(`Yahoo Finance HTTP ${status}`);
+  }
+
+  const chartError = data?.chart?.error;
+  if (chartError) {
+    throw new Error(chartError.description ?? 'Yahoo Finance chart error');
+  }
+
+  const result = data?.chart?.result?.[0];
+  const quote = result?.indicators?.quote?.[0];
+  const timestamps = result?.timestamp ?? [];
+
+  if (!quote || timestamps.length === 0) {
     throw new Error(`No ${interval} candle data returned for ${symbol}`);
   }
 
+  const candles = normalizeCandles(
+    timestamps.map((t, i) => ({
+      date: new Date(t * 1000),
+      open: quote.open[i],
+      high: quote.high[i],
+      low: quote.low[i],
+      close: quote.close[i],
+      volume: quote.volume?.[i] ?? 0,
+    })).filter((q) => q.open != null && q.high != null && q.low != null && q.close != null),
+  );
+
+  if (candles.length === 0) {
+    throw new Error(`No valid ${interval} candles for ${symbol}`);
+  }
+
   return candles;
+}
+
+export async function fetchChartCandles(symbol, { interval = '5m', period1, period2 } = {}) {
+  const cacheKey = `${symbol}|${interval}|${toUnixSeconds(period1)}|${toUnixSeconds(period2)}`;
+  const cached = cache.get(cacheKey);
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+    return cached.candles;
+  }
+
+  let lastError;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const candles = await queueYahooRequest(async () => {
+        await throttle();
+
+        try {
+          return await fetchYahooChartDirect(symbol, { interval, period1, period2 }, 0);
+        } catch (err) {
+          if (isRateLimitError(err)) throw err;
+          return fetchYahooChartDirect(symbol, { interval, period1, period2 }, 1);
+        }
+      });
+
+      cache.set(cacheKey, { at: Date.now(), candles });
+      return candles;
+    } catch (err) {
+      lastError = err;
+      if (!isRateLimitError(err) || attempt === MAX_RETRIES - 1) break;
+      await sleep(2_000 * 2 ** attempt);
+    }
+  }
+
+  throw lastError;
 }
 
 export async function fetchLiveCandles(ticker) {
@@ -93,6 +200,7 @@ export function filterRegularSessionCandles(candles, tradingDate) {
     return date === tradingDate && minutes >= 9 * 60 + 30 && minutes < 16 * 60;
   });
 }
+
 export function getLastTradingSessionRange() {
   const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
   const cursor = new Date(etNow);
@@ -134,4 +242,11 @@ export async function fetchLastSessionCandles(ticker) {
   }
 
   return { label, symbol, candles, tradingDate };
+}
+
+export function formatYahooError(err) {
+  if (isRateLimitError(err)) {
+    return 'Yahoo Finance rate limit — wait 60 seconds, then run `/smctest` on one ticker at a time.';
+  }
+  return err?.message ?? String(err);
 }

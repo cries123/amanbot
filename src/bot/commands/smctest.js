@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { config } from '../../config.js';
 import { scanTickerHistory } from '../../services/smcScanner.js';
+import { formatYahooError } from '../../services/yahooMarket.js';
 import { buildSmcAlertEmbed } from '../../utils/embeds.js';
 
 const TICKER_CHOICES = [
@@ -35,7 +36,12 @@ export async function execute(interaction) {
   const summary = [];
   const embeds = [];
 
-  for (const ticker of tickers) {
+  for (let i = 0; i < tickers.length; i++) {
+    const ticker = tickers[i];
+    if (i > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 2_500));
+    }
+
     try {
       const result = await scanTickerHistory(ticker);
       summary.push(`**${result.label}** (${result.tradingDate}): ${result.signals.length} setup(s), ${result.candles.length} bars`);
@@ -48,7 +54,7 @@ export async function execute(interaction) {
         }));
       }
     } catch (err) {
-      summary.push(`**${ticker}**: failed — ${err.message}`);
+      summary.push(`**${ticker}**: failed — ${formatYahooError(err)}`);
     }
   }
 

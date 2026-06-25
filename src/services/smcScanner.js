@@ -1,5 +1,5 @@
 import { config } from '../config.js';
-import { fetchLiveCandles, fetchLastSessionCandles, dropFormingCandle, SMC_TICKERS } from './yahooMarket.js';
+import { fetchLiveCandles, fetchLastSessionCandles, dropFormingCandle, SMC_TICKERS, formatYahooError } from './yahooMarket.js';
 import {
   scanLatestBar,
   scanAllSmc,
@@ -50,7 +50,7 @@ export async function scanAllTickersLive() {
     try {
       results.push(await scanTickerLive(label));
     } catch (err) {
-      console.error(`[smc:${label}]`, err.message);
+      console.error(`[smc:${label}]`, formatYahooError(err));
     }
   }
   return results;

@@ -120,7 +120,7 @@ Create dedicated Discord channels and set their IDs in `.env`:
 ## API Dependencies & Notes
 
 ### Yahoo Finance (SMC scanner — no API key)
-- **5m OHLCV**: `yahoo-finance2` chart API for SPY, ^GSPC (SPX), QQQ
+- **5m OHLCV**: Yahoo Finance chart API for SPY, ^GSPC (SPX), QQQ (with retry + rate-limit handling)
 - **FVG**: Bullish when candle 3 low > candle 1 high; bearish when candle 3 high < candle 1 low
 - **EQH/EQL**: Swing pivots within `EQH_EQL_TOLERANCE_PCT` (default 0.05%)
 - Runs every 5 minutes during regular market hours via `SMC_SCAN_CRON`
