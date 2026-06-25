@@ -8,9 +8,9 @@ export const SMC_TICKERS = [
 ];
 
 export const SMC_TIMEFRAMES = {
-  '5m': { interval: '5m', barMinutes: 5, contextBars: 4, swingLookback: 2, minBarSeparation: 3, structuresOnly: false },
-  '1h': { interval: '1h', barMinutes: 60, contextBars: 3, swingLookback: 1, minBarSeparation: 1, structuresOnly: true },
-  '4h': { interval: '4h', barMinutes: 240, contextBars: 2, swingLookback: 1, minBarSeparation: 1, structuresOnly: true },
+  '5m': { interval: '5m', barMinutes: 5, contextBars: 4, minBarSeparation: 3, scanDays: 1, sessionOnly: true },
+  '1h': { interval: '1h', barMinutes: 60, contextBars: 0, minBarSeparation: 1, scanDays: 10, sessionOnly: false },
+  '4h': { interval: '4h', barMinutes: 240, contextBars: 0, minBarSeparation: 1, scanDays: 30, sessionOnly: false },
 };
 
 export const SMC_TIMEFRAME_LIST = Object.keys(SMC_TIMEFRAMES);
@@ -157,10 +157,12 @@ export async function fetchChartCandles(symbol, { interval = '5m', period1, peri
   throw lastError;
 }
 
-export async function fetchLiveCandles(ticker, timeframe = '5m') {
+export async function fetchScanCandles(ticker, timeframe = '5m') {
   const { label, symbol } = resolveSymbol(ticker);
   const tf = SMC_TIMEFRAMES[timeframe] ?? SMC_TIMEFRAMES['5m'];
-  const { tradingDate, period1, period2 } = getLastTradingSessionRange();
+  const period2 = new Date();
+  const period1 = new Date();
+  period1.setDate(period1.getDate() - tf.scanDays);
 
   const raw = await fetchChartCandles(symbol, {
     interval: tf.interval,
@@ -168,17 +170,47 @@ export async function fetchLiveCandles(ticker, timeframe = '5m') {
     period2,
   });
 
-  const { candles, sessionStart, sessionEnd, sessionBars } = buildSessionCandleWindow(
-    raw,
-    tradingDate,
-    tf.contextBars,
-  );
-
-  if (sessionBars === 0) {
-    throw new Error(`No regular-session ${tf.interval} candles for ${label} on ${tradingDate}`);
+  if (tf.sessionOnly) {
+    const { tradingDate } = getLastTradingSessionRange();
+    const window = buildSessionCandleWindow(raw, tradingDate, tf.contextBars);
+    if (window.sessionBars === 0) {
+      throw new Error(`No regular-session ${tf.interval} candles for ${label} on ${tradingDate}`);
+    }
+    return {
+      label,
+      symbol,
+      candles: window.candles,
+      scanStart: window.sessionStart,
+      scanEnd: window.sessionEnd,
+      tradingDate,
+      sessionBars: window.sessionBars,
+      timeframe,
+    };
   }
 
-  return { label, symbol, candles, timeframe, tradingDate, sessionStart, sessionEnd, sessionBars };
+  const candles = filterAllRegularSessionCandles(raw);
+  if (candles.length === 0) {
+    throw new Error(`No regular-session ${tf.interval} candles for ${label}`);
+  }
+
+  return {
+    label,
+    symbol,
+    candles,
+    scanStart: 0,
+    scanEnd: candles.length - 1,
+    tradingDate: `last ${tf.scanDays} days`,
+    sessionBars: candles.length,
+    timeframe,
+  };
+}
+
+export async function fetchLiveCandles(ticker, timeframe = '5m') {
+  return fetchScanCandles(ticker, timeframe);
+}
+
+export async function fetchLastSessionCandles(ticker, timeframe = '5m') {
+  return fetchScanCandles(ticker, timeframe);
 }
 
 export function dropFormingCandle(candles, intervalMinutes = 5) {
@@ -215,6 +247,21 @@ export function filterRegularSessionCandles(candles, tradingDate) {
   return candles.filter((c) => {
     const { date, minutes } = etParts(c.t);
     return date === tradingDate && minutes >= 9 * 60 + 30 && minutes <= 16 * 60;
+  });
+}
+
+function isWeekdayEt(unixSeconds) {
+  const day = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+  }).format(new Date(unixSeconds * 1000));
+  return day !== 'Sat' && day !== 'Sun';
+}
+
+export function filterAllRegularSessionCandles(candles) {
+  return candles.filter((c) => {
+    const { minutes } = etParts(c.t);
+    return isWeekdayEt(c.t) && minutes >= 9 * 60 + 30 && minutes <= 16 * 60;
   });
 }
 
@@ -259,39 +306,6 @@ export function getLastTradingSessionRange() {
   period2.setDate(period2.getDate() + 1);
 
   return { tradingDate, period1, period2 };
-}
-
-export async function fetchLastSessionCandles(ticker, timeframe = '5m') {
-  const { label, symbol } = resolveSymbol(ticker);
-  const tf = SMC_TIMEFRAMES[timeframe] ?? SMC_TIMEFRAMES['5m'];
-  const { tradingDate, period1, period2 } = getLastTradingSessionRange();
-
-  const raw = await fetchChartCandles(symbol, {
-    interval: tf.interval,
-    period1,
-    period2,
-  });
-
-  const { candles, sessionStart, sessionEnd, sessionBars } = buildSessionCandleWindow(
-    raw,
-    tradingDate,
-    tf.contextBars,
-  );
-
-  if (sessionBars === 0) {
-    throw new Error(`No regular-session ${tf.interval} candles for ${label} on ${tradingDate}`);
-  }
-
-  return {
-    label,
-    symbol,
-    candles,
-    tradingDate,
-    timeframe,
-    sessionStart,
-    sessionEnd,
-    sessionBars,
-  };
 }
 
 export function formatYahooError(err) {

@@ -19,6 +19,26 @@ const SMC_LABELS = {
 const BULL_COLOR = 0x2ecc71;
 const BEAR_COLOR = 0xe74c3c;
 
+export function buildWickLevelEmbed({ ticker, level, timeframe = '1h' }) {
+  const isEql = level.structure === 'EQL';
+  const touchList = (level.touchTimes ?? [])
+    .map((t) => formatEtTime(t))
+    .join('\n');
+
+  return new EmbedBuilder()
+    .setTitle(`${ticker} — ${level.setupType}`)
+    .setColor(isEql ? 0x2ecc71 : 0xe74c3c)
+    .addFields(
+      { name: 'Wick Zone', value: `\`$${level.zoneLow.toFixed(2)} – $${level.zoneHigh.toFixed(2)}\``, inline: false },
+      { name: 'Touches', value: String(level.touches), inline: true },
+      { name: 'Timeframe', value: `\`${timeframe}\``, inline: true },
+      { name: 'Last Touch (ET)', value: formatEtTime(level.formationTime), inline: true },
+      { name: 'Touch Times (ET)', value: touchList || 'N/A', inline: false },
+    )
+    .setFooter({ text: `Yahoo Finance • ${timeframe}` })
+    .setTimestamp(level.formationTime ? new Date(level.formationTime * 1000) : new Date());
+}
+
 export function buildSmcAlertEmbed({ ticker, signal, timeframe = '5m' }) {
   const isBullish = signal.direction === 'bullish';
   const color = isBullish ? BULL_COLOR : BEAR_COLOR;

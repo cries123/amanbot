@@ -1,103 +1,52 @@
 import { config } from '../config.js';
 import {
-  fetchLiveCandles,
-  fetchLastSessionCandles,
+  fetchScanCandles,
   dropFormingCandle,
   SMC_TICKERS,
   SMC_TIMEFRAMES,
   formatYahooError,
 } from './yahooMarket.js';
-import {
-  scanLatestBar,
-  scanAllSmc,
-} from '../utils/smcStructure.js';
+import { scanRecentWickLevels } from '../utils/smcStructure.js';
 
-function scannerOptions(overrides = {}, timeframe = '5m') {
-  const tf = SMC_TIMEFRAMES[timeframe] ?? SMC_TIMEFRAMES['5m'];
-  return {
-    minGapPct: overrides.minGapPct ?? config.monitors.fvgMinGapPct,
+export async function scanTickerWicks(ticker, overrides = {}) {
+  const timeframe = overrides.timeframe ?? '1h';
+  const tf = SMC_TIMEFRAMES[timeframe] ?? SMC_TIMEFRAMES['1h'];
+  const data = await fetchScanCandles(ticker, timeframe);
+
+  let candles = data.candles;
+  if (overrides.live) {
+    candles = dropFormingCandle(candles, tf.barMinutes);
+  }
+
+  const scanEnd = Math.min(data.scanEnd, candles.length - 1);
+  const { eqh, eql, signals } = scanRecentWickLevels(candles, {
+    scanStart: data.scanStart,
+    scanEnd,
     toleranceDollars: overrides.toleranceDollars ?? config.monitors.eqhEqlTolerance,
-    sessionExtremeBand: overrides.sessionExtremeBand ?? config.monitors.eqhEqlSessionBand,
-    lookback: overrides.lookback ?? tf.swingLookback,
     minBarSeparation: overrides.minBarSeparation ?? tf.minBarSeparation,
-    structuresOnly: overrides.structuresOnly ?? tf.structuresOnly,
-    sessionStart: overrides.sessionStart,
-    sessionEnd: overrides.sessionEnd,
+    limit: overrides.limit ?? 3,
+  });
+
+  return {
+    label: data.label,
+    symbol: data.symbol,
+    candles,
+    eqh,
+    eql,
+    signals,
+    timeframe,
+    tradingDate: data.tradingDate,
+    sessionBars: data.sessionBars,
+    mode: overrides.live ? 'live' : 'history',
   };
 }
 
 export async function scanTickerLive(ticker, overrides = {}) {
-  const timeframe = overrides.timeframe ?? '5m';
-  const tf = SMC_TIMEFRAMES[timeframe] ?? SMC_TIMEFRAMES['5m'];
-  const {
-    label,
-    symbol,
-    candles: rawCandles,
-    tradingDate,
-    sessionStart,
-    sessionEnd,
-    sessionBars,
-  } = await fetchLiveCandles(ticker, timeframe);
-
-  const candles = dropFormingCandle(rawCandles, tf.barMinutes);
-  const endIndex = candles.length - 1;
-  const options = scannerOptions({
-    ...overrides,
-    sessionStart,
-    sessionEnd: Math.min(sessionEnd, endIndex),
-  }, timeframe);
-
-  let signals;
-  if (options.structuresOnly) {
-    signals = scanAllSmc(candles, { ...options, sessionEnd: Math.min(sessionEnd, endIndex) });
-  } else {
-    signals = scanLatestBar(candles, options);
-  }
-
-  return {
-    label,
-    symbol,
-    candles,
-    signals,
-    timeframe,
-    tradingDate,
-    sessionBars,
-    options,
-    mode: 'live',
-  };
+  return scanTickerWicks(ticker, { ...overrides, live: true });
 }
 
 export async function scanTickerHistory(ticker, overrides = {}) {
-  const timeframe = overrides.timeframe ?? '5m';
-  const {
-    label,
-    symbol,
-    candles,
-    tradingDate,
-    sessionStart,
-    sessionEnd,
-    sessionBars,
-  } = await fetchLastSessionCandles(ticker, timeframe);
-
-  const options = scannerOptions({
-    ...overrides,
-    sessionStart,
-    sessionEnd,
-  }, timeframe);
-
-  const signals = scanAllSmc(candles, options);
-
-  return {
-    label,
-    symbol,
-    candles,
-    signals,
-    tradingDate,
-    timeframe,
-    sessionBars,
-    options,
-    mode: 'history',
-  };
+  return scanTickerWicks(ticker, overrides);
 }
 
 export function getTimeframesDueNow(date = new Date()) {
@@ -128,7 +77,7 @@ export async function scanAllTickersLive(timeframes = null) {
   for (const timeframe of frames) {
     for (const { label } of SMC_TICKERS) {
       try {
-        results.push(await scanTickerLive(label, { timeframe, structuresOnly: timeframe !== '5m' }));
+        results.push(await scanTickerWicks(label, { timeframe, live: true }));
       } catch (err) {
         console.error(`[smc:${label}:${timeframe}]`, formatYahooError(err));
       }

@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { config } from '../../config.js';
-import { scanTickerLive } from '../../services/smcScanner.js';
-import { buildSmcAlertEmbed } from '../../utils/embeds.js';
-import { rankStructureSignals } from '../../utils/smcStructure.js';
+import { scanTickerWicks } from '../../services/smcScanner.js';
+import { buildWickLevelEmbed } from '../../utils/embeds.js';
 
 const TICKER_CHOICES = [
   { name: 'SPY', value: 'SPY' },
@@ -18,7 +17,7 @@ const TIMEFRAME_CHOICES = [
 
 export const data = new SlashCommandBuilder()
   .setName('flow')
-  .setDescription('Live EQH/EQL scan on 5m, 1h, or 4h candles')
+  .setDescription('Find the last 3 EQH and 3 EQL wick levels on a chart')
   .addStringOption((opt) =>
     opt
       .setName('ticker')
@@ -34,28 +33,26 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   const ticker = interaction.options.getString('ticker') ?? 'SPY';
-  const timeframe = interaction.options.getString('timeframe') ?? '5m';
+  const timeframe = interaction.options.getString('timeframe') ?? '1h';
 
   await interaction.deferReply();
 
   try {
-    const result = await scanTickerLive(ticker, { timeframe, structuresOnly: true });
-    const { label, candles, signals } = result;
-
-    const displaySignals = [
-      ...rankStructureSignals(signals.filter((s) => s.structure === 'EQL'), 'EQL'),
-      ...rankStructureSignals(signals.filter((s) => s.structure === 'EQH'), 'EQH'),
+    const result = await scanTickerWicks(ticker, { timeframe, live: true });
+    const embeds = [
+      ...result.eql.map((level) => buildWickLevelEmbed({ ticker: result.label, level, timeframe })),
+      ...result.eqh.map((level) => buildWickLevelEmbed({ ticker: result.label, level, timeframe })),
     ];
 
-    if (displaySignals.length === 0) {
+    if (embeds.length === 0) {
       const embed = new EmbedBuilder()
-        .setTitle(`EQH/EQL Scan — ${label} (${timeframe})`)
+        .setTitle(`EQH/EQL Wick Scan — ${result.label} (${timeframe})`)
         .setColor(0x95a5a6)
-        .setDescription(`No EQH or EQL levels within $${config.monitors.eqhEqlTolerance.toFixed(2)} on the previous session (${timeframe}).`)
+        .setDescription(`No equal wick levels found within **$${config.monitors.eqhEqlTolerance.toFixed(2)}** on the loaded chart.`)
         .addFields(
-          { name: 'Bars loaded', value: String(candles.length), inline: true },
-          { name: 'EQH/EQL tolerance', value: `$${config.monitors.eqhEqlTolerance.toFixed(2)}`, inline: true },
-          { name: 'Data source', value: `Yahoo Finance (${timeframe})`, inline: false },
+          { name: 'Bars scanned', value: String(result.sessionBars), inline: true },
+          { name: 'Window', value: result.tradingDate, inline: true },
+          { name: 'Data', value: `Yahoo Finance (${timeframe})`, inline: false },
         )
         .setTimestamp();
 
@@ -63,14 +60,8 @@ export async function execute(interaction) {
       return;
     }
 
-    const embeds = displaySignals.map((signal) => buildSmcAlertEmbed({
-      ticker: label,
-      signal,
-      timeframe,
-    }));
-
     await interaction.editReply({
-      content: `**${label}** \`${timeframe}\` — ${displaySignals.length} EQH/EQL level(s) from the previous session`,
+      content: `**${result.label}** \`${timeframe}\` — last **3 EQL** + **3 EQH** wick levels (≤ $${config.monitors.eqhEqlTolerance.toFixed(2)})`,
       embeds,
     });
   } catch (err) {

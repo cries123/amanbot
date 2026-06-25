@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { config } from '../config.js';
 import { scanAllTickersLive } from '../services/smcScanner.js';
-import { buildSmcAlertEmbed } from '../utils/embeds.js';
+import { buildWickLevelEmbed } from '../utils/embeds.js';
 
 const recentAlerts = new Map();
 const DEDUP_MS = 5 * 60 * 1000;
@@ -21,14 +21,14 @@ export function startSmcScanner(client, sendToChannel) {
 
       for (const result of results) {
         for (const signal of result.signals) {
-          const key = `${result.label}-${result.timeframe}-${signal.type}-${signal.barTime}-${signal.zoneLow ?? signal.level}`;
+          const key = `${result.label}-${result.timeframe}-${signal.type}-${signal.formationTime}-${signal.zoneLow}`;
           const last = recentAlerts.get(key);
           if (last && Date.now() - last < DEDUP_MS) continue;
           recentAlerts.set(key, Date.now());
 
-          const embed = buildSmcAlertEmbed({
+          const embed = buildWickLevelEmbed({
             ticker: result.label,
-            signal,
+            level: signal,
             timeframe: result.timeframe,
           });
 

@@ -1,9 +1,8 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { config } from '../../config.js';
-import { scanTickerHistory } from '../../services/smcScanner.js';
+import { scanTickerWicks } from '../../services/smcScanner.js';
 import { formatYahooError } from '../../services/yahooMarket.js';
-import { buildSmcAlertEmbed } from '../../utils/embeds.js';
-import { rankStructureSignals } from '../../utils/smcStructure.js';
+import { buildWickLevelEmbed } from '../../utils/embeds.js';
 
 const TICKER_CHOICES = [
   { name: 'SPY', value: 'SPY' },
@@ -18,26 +17,20 @@ const TIMEFRAME_CHOICES = [
   { name: '4 hours', value: '4h' },
 ];
 
-function pickDisplaySignals(signals) {
-  const eql = rankStructureSignals(signals.filter((s) => s.structure === 'EQL'), 'EQL');
-  const eqh = rankStructureSignals(signals.filter((s) => s.structure === 'EQH'), 'EQH');
-  return [...eql.slice(0, 4), ...eqh.slice(0, 4)];
-}
-
 export const data = new SlashCommandBuilder()
   .setName('smctest')
-  .setDescription('Admin: replay EQH/EQL detection on historical candles')
+  .setDescription('Admin: find last 3 EQH and 3 EQL wick levels on a chart')
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addStringOption((opt) =>
     opt
       .setName('ticker')
-      .setDescription('Ticker to backtest (default: all)')
+      .setDescription('Ticker to scan (default: all)')
       .addChoices(...TICKER_CHOICES),
   )
   .addStringOption((opt) =>
     opt
       .setName('timeframe')
-      .setDescription('Chart timeframe (default: 5m)')
+      .setDescription('Chart timeframe (default: 1h)')
       .addChoices(...TIMEFRAME_CHOICES),
   );
 
@@ -48,7 +41,7 @@ export async function execute(interaction) {
   }
 
   const selection = interaction.options.getString('ticker') ?? 'ALL';
-  const timeframe = interaction.options.getString('timeframe') ?? '5m';
+  const timeframe = interaction.options.getString('timeframe') ?? '1h';
   const tickers = selection === 'ALL' ? config.monitors.smcTickers : [selection];
 
   await interaction.deferReply({ ephemeral: true });
@@ -63,17 +56,16 @@ export async function execute(interaction) {
     }
 
     try {
-      const result = await scanTickerHistory(ticker, { timeframe, structuresOnly: true });
-      const displaySignals = pickDisplaySignals(result.signals);
+      const result = await scanTickerWicks(ticker, { timeframe });
 
       summary.push(
-        `**${result.label}** \`${timeframe}\` (${result.tradingDate}): ${result.signals.length} level(s), showing ${displaySignals.length} key setup(s), ${result.sessionBars} session bars`,
+        `**${result.label}** \`${timeframe}\` (${result.tradingDate}): ${result.eql.length} EQL + ${result.eqh.length} EQH`,
       );
 
-      for (const signal of displaySignals) {
-        embeds.push(buildSmcAlertEmbed({
+      for (const level of [...result.eql, ...result.eqh]) {
+        embeds.push(buildWickLevelEmbed({
           ticker: result.label,
-          signal,
+          level,
           timeframe,
         }));
       }
@@ -83,25 +75,19 @@ export async function execute(interaction) {
   }
 
   const header = new EmbedBuilder()
-    .setTitle(`EQH/EQL History Test — ${timeframe}`)
+    .setTitle(`EQH/EQL Wick Scan — ${timeframe}`)
     .setColor(0x5865f2)
     .setDescription([
-      'Previous regular session (9:30 AM – 4:00 PM ET). Shows lowest EQL / highest EQH first, including session-low clusters.',
+      'Last **3 equal low wicks** and **3 equal high wicks** on the chart (no sweep logic).',
       '',
       ...summary,
       '',
-      `Pivot tolerance: **$${config.monitors.eqhEqlTolerance.toFixed(2)}** | Session extreme band: **$${config.monitors.eqhEqlSessionBand.toFixed(2)}**`,
+      `Wick tolerance: **$${config.monitors.eqhEqlTolerance.toFixed(2)}**`,
     ].join('\n'))
     .setTimestamp();
 
-  const payload = {
+  await interaction.editReply({
     embeds: [header, ...embeds.slice(0, 9)],
     ephemeral: true,
-  };
-
-  if (embeds.length > 9) {
-    payload.content = `Showing top ${Math.min(9, embeds.length)} setup(s). Narrow to one ticker for more detail.`;
-  }
-
-  await interaction.editReply(payload);
+  });
 }
