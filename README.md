@@ -86,7 +86,7 @@ Supported `event_type` values: `EQH`, `EQL`, `FVG_CREATE`, `FVG_FILL` (or Tradin
 
 ### `/chart [ticker] [timeframe]`
 
-Renders a TradingView chart via Chart-img. Timeframes: `1m`, `5m`, `15m`, `1h`, `4h`, `1D`.
+Renders a candlestick chart from Finnhub market data. Timeframes: `1m`, `5m`, `15m`, `1h`, `4h`, `1D`.
 
 ### `/breakeven [strategy] [strike] [premium] [strike2] [contracts]`
 
@@ -108,26 +108,21 @@ Create dedicated Discord channels and set their IDs in `.env`:
 | Variable | Purpose |
 |----------|---------|
 | `CHANNEL_SMC_ALERTS` | TradingView structure alerts |
-| `CHANNEL_OPTIONS_FLOW` | 0DTE options flow pings |
+| `CHANNEL_OPTIONS_FLOW` | Unusual volume flow pings |
 | `CHANNEL_IV_ALERTS` | IV extreme notifications |
 | `CHANNEL_ECONOMIC` | Economic calendar & warnings |
 | `CHANNEL_SENTIMENT` | Daily sentiment polls |
 
 ## API Dependencies & Notes
 
-### Chart-img
-- Used for `/chart` command
-- Supports custom indicators via `studies` parameter
-- Optional TradingView session headers for premium indicators
-
-### Polygon.io
-- **Options flow**: `/v3/snapshot/options/{ticker}` — scans 0DTE contracts for premium/volume thresholds
-- **IV monitor**: ATM implied vol vs 1-year realized vol history for percentile estimation
-- Requires at least **Starter** plan with options data access
-
-### Finnhub
-- **Economic calendar**: `/calendar/economic` — filtered for CPI, FOMC, NFP, JOLTS, jobless claims, ADP
+### Finnhub (primary — only key required)
+- **Charts**: `/stock/candle` OHLCV → rendered as candlestick PNG
+- **Volume flow**: Detects unusual intraday volume spikes on SPY/QQQ (SPX uses SPY proxy)
+- **IV monitor**: Realized volatility percentile from daily candles
+- **Economic calendar**: `/calendar/economic` — filtered for CPI, FOMC, NFP, etc.
 - **Sentiment grading**: SPY daily candle to determine bullish/bearish close
+
+> **Note:** Finnhub does not offer options flow data. `/flow` scans **stock volume**, not options contracts. For true 0DTE options flow you'd need Polygon or Unusual Whales.
 
 ### PostgreSQL
 - Required for sentiment polls, vote tracking, leaderboard, and deduplication of economic warnings

@@ -61,6 +61,29 @@ function normalizeEventType(payload) {
   return raw.replace(/\s+/g, '_');
 }
 
+export function buildSmcStructureEmbed(signal) {
+  const isEqh = signal.structure === 'EQH';
+  const swept = signal.swept;
+  const title = swept
+    ? (isEqh ? '📈 EQH Sweep' : '📉 EQL Sweep')
+    : (isEqh ? '📈 Equal Highs (EQH)' : '📉 Equal Lows (EQL)');
+
+  return new EmbedBuilder()
+    .setTitle(`${title} — ${signal.underlying}`)
+    .setColor(swept ? (isEqh ? 0xe74c3c : 0x2ecc71) : (isEqh ? 0xe67e22 : 0x3498db))
+    .addFields(
+      { name: 'Level', value: `\`$${signal.level.toFixed(2)}\``, inline: true },
+      { name: 'Zone', value: `\`$${signal.zoneLow.toFixed(2)} – $${signal.zoneHigh.toFixed(2)}\``, inline: true },
+      { name: 'Spread', value: `\`$${signal.spread.toFixed(2)}\` (≤ $${signal.tolerance.toFixed(2)})`, inline: true },
+      { name: 'Touches', value: String(signal.touches), inline: true },
+      { name: 'Timeframe', value: signal.timeframe ?? '5m', inline: true },
+      { name: 'Status', value: swept ? '**Swept**' : 'Active', inline: true },
+      { name: 'Current Price', value: `\`$${signal.price.toFixed(2)}\``, inline: true },
+    )
+    .setTimestamp()
+    .setFooter({ text: 'Finnhub SMC Structure Scan' });
+}
+
 export function buildVolumeFlowEmbed(signal) {
   const emoji = signal.direction === 'bullish' ? '🟢' : '🔴';
   return new EmbedBuilder()

@@ -1,14 +1,14 @@
 import cron from 'node-cron';
 import { config } from '../config.js';
-import { scanTickerVolumeFlow } from '../services/finnhub.js';
-import { buildVolumeFlowEmbed } from '../utils/embeds.js';
+import { scanTickerSmcFlow } from '../services/finnhub.js';
+import { buildSmcStructureEmbed } from '../utils/embeds.js';
 
 const recentAlerts = new Map();
 const DEDUP_MS = 5 * 60 * 1000;
 
 export function startOptionsFlowMonitor(client, sendToChannel) {
   if (!config.apis.finnhub || !config.channels.optionsFlow) {
-    console.warn('[volume-flow] Skipped — FINNHUB_API_KEY or CHANNEL_OPTIONS_FLOW not set');
+    console.warn('[smc-flow] Skipped — FINNHUB_API_KEY or CHANNEL_OPTIONS_FLOW not set');
     return;
   }
 
@@ -19,22 +19,23 @@ export function startOptionsFlowMonitor(client, sendToChannel) {
 
       for (const ticker of config.monitors.optionsTickers) {
         try {
-          const { signals } = await scanTickerVolumeFlow(ticker, {
-            minPremium: config.monitors.optionsMinPremium,
-            minVoiRatio: config.monitors.optionsMinVoiRatio,
+          const { signals } = await scanTickerSmcFlow(ticker, {
+            timeframe: '5m',
+            tolerance: config.monitors.eqhEqlTolerance,
+            sweepsOnly: true,
           });
 
-          for (const signal of signals.slice(0, 3)) {
-            const key = `${signal.underlying}-${signal.barTime}`;
+          for (const signal of signals) {
+            const key = `${signal.underlying}-${signal.type}-${signal.level}`;
             const last = recentAlerts.get(key);
             if (last && Date.now() - last < DEDUP_MS) continue;
             recentAlerts.set(key, Date.now());
 
-            const embed = buildVolumeFlowEmbed(signal);
+            const embed = buildSmcStructureEmbed(signal);
             await sendToChannel(client, config.channels.optionsFlow, { embeds: [embed] });
           }
         } catch (err) {
-          console.error(`[volume-flow:${ticker}]`, err.message);
+          console.error(`[smc-flow:${ticker}]`, err.message);
         }
       }
 
@@ -43,7 +44,7 @@ export function startOptionsFlowMonitor(client, sendToChannel) {
     { timezone: config.timezone },
   );
 
-  console.log('[volume-flow] Monitor scheduled');
+  console.log('[smc-flow] EQH/EQL monitor scheduled');
 }
 
 function isMarketHours() {

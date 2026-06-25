@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { config } from '../config.js';
+import { scanEqhEql } from '../utils/smcStructure.js';
 
 const BASE = 'https://finnhub.io/api/v1';
 
@@ -121,8 +122,6 @@ export function getUpcomingWeekRange() {
   };
 }
 
-// ─── Market data (charts & volume flow) ─────────────────────────────────────
-
 const CHART_RESOLUTION = {
   '1m': '1',
   '5m': '5',
@@ -242,69 +241,41 @@ async function renderCandlestickChart(symbol, timeframe, candles) {
   return Buffer.from(data);
 }
 
-export async function getIntradayCandles(symbol, resolution = '5') {
+export async function getIntradayCandles(symbol, resolution = '5', bars = 120) {
   const to = Math.floor(Date.now() / 1000);
-  const from = to - lookbackSeconds(resolution, 80);
+  const from = to - lookbackSeconds(resolution, bars);
   return getStockCandles(symbol, resolution, from, to);
 }
 
-export function scanVolumeFlow(candles, thresholds, { testMode = false } = {}) {
-  const { minPremium, minVoiRatio } = thresholds;
-  const minDollarVolume = testMode ? 1_000_000 : minPremium;
-  const minVolRatio = testMode ? 1.5 : minVoiRatio;
+const FLOW_RESOLUTION_MAP = {
+  '1m': '1',
+  '5m': '5',
+  '15m': '15',
+  '1h': '60',
+};
 
-  const signals = [];
-  const len = candles.t?.length ?? 0;
-  if (len < 10) return signals;
+export async function scanTickerSmcFlow(ticker, options = {}) {
+  const symbol = normalizeTicker(ticker);
+  const resolution = FLOW_RESOLUTION_MAP[options.timeframe] ?? '5';
+  const tolerance = options.tolerance ?? 0.05;
+  const sweepsOnly = options.sweepsOnly ?? false;
 
-  const window = 20;
-  for (let i = window; i < len; i++) {
-    const volume = candles.v[i];
-    const price = candles.c[i];
-    const prevClose = candles.c[i - 1] ?? price;
-    const dollarVolume = volume * price;
+  const candles = await getIntradayCandles(symbol, resolution, 150);
+  candles.symbol = symbol;
 
-    const volSlice = candles.v.slice(i - window, i);
-    const avgVolume = volSlice.reduce((a, b) => a + b, 0) / volSlice.length;
-    const volRatio = avgVolume > 0 ? volume / avgVolume : 0;
+  const result = scanEqhEql(candles, { tolerance });
+  let signals = result.signals.map((s) => ({ ...s, underlying: symbol, timeframe: options.timeframe ?? '5m' }));
 
-    if (volume <= 0 || dollarVolume < minDollarVolume || volRatio < minVolRatio) continue;
-
-    const changePct = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
-
-    signals.push({
-      underlying: candles.symbol ?? 'UNKNOWN',
-      barTime: new Date(candles.t[i] * 1000).toISOString(),
-      volume,
-      avgVolume: Math.round(avgVolume),
-      volRatio,
-      dollarVolume,
-      price,
-      changePct,
-      direction: changePct >= 0 ? 'bullish' : 'bearish',
-    });
+  if (sweepsOnly) {
+    signals = signals.filter((s) => s.swept);
   }
 
-  return signals.sort((a, b) => b.dollarVolume - a.dollarVolume);
-}
-
-export function getVolumeFlowDiagnostics(candles) {
-  const len = candles.t?.length ?? 0;
-  const withVolume = candles.v?.filter((v) => v > 0).length ?? 0;
   return {
-    bars: len,
-    barsWithVolume: withVolume,
-    date: new Date().toISOString().slice(0, 10),
+    ...result,
+    signals,
+    symbol,
+    timeframe: options.timeframe ?? '5m',
   };
-}
-
-export async function scanTickerVolumeFlow(ticker, thresholds, { testMode = false } = {}) {
-  const symbol = normalizeTicker(ticker);
-  const candles = await getIntradayCandles(symbol, '5');
-  candles.symbol = symbol;
-  const signals = scanVolumeFlow(candles, thresholds, { testMode });
-  const diagnostics = getVolumeFlowDiagnostics(candles);
-  return { signals, diagnostics, symbol };
 }
 
 export async function estimateIvPercentile(ticker) {

@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import axios from 'axios';
-import { fetchChartImage, scanTickerVolumeFlow } from '../services/finnhub.js';
+import { fetchChartImage, scanTickerSmcFlow } from '../services/finnhub.js';
 
 const results = [];
 
@@ -63,14 +63,10 @@ async function testFinnhubFlow() {
   }
 
   try {
-    const { diagnostics } = await scanTickerVolumeFlow('SPY', {
-      minPremium: 25_000,
-      minVoiRatio: 3,
-    }, { testMode: true });
-
-    pass('Finnhub Flow', `Connected — ${diagnostics.bars} bars scanned`);
+    const { diagnostics, signals } = await scanTickerSmcFlow('SPY', { timeframe: '5m', tolerance: 0.05 });
+    pass('Finnhub EQH/EQL', `Connected — ${diagnostics.eqhClusters} EQH, ${diagnostics.eqlClusters} EQL, ${signals.length} signals`);
   } catch (err) {
-    fail('Finnhub Flow', err.message);
+    fail('Finnhub EQH/EQL', err.message);
   }
 }
 

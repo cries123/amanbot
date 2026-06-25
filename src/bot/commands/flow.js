@@ -1,11 +1,17 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { config } from '../../config.js';
-import { scanTickerVolumeFlow } from '../../services/finnhub.js';
-import { buildVolumeFlowEmbed } from '../../utils/embeds.js';
+import { scanTickerSmcFlow } from '../../services/finnhub.js';
+import { buildSmcStructureEmbed } from '../../utils/embeds.js';
+
+const TIMEFRAMES = [
+  { name: '5 minutes', value: '5m' },
+  { name: '15 minutes', value: '15m' },
+  { name: '1 hour', value: '1h' },
+];
 
 export const data = new SlashCommandBuilder()
   .setName('flow')
-  .setDescription('Scan for unusual volume flow via Finnhub (manual trigger)')
+  .setDescription('Scan for EQH/EQL levels (swing points within $0.05)')
   .addStringOption((opt) =>
     opt
       .setName('ticker')
@@ -17,10 +23,11 @@ export const data = new SlashCommandBuilder()
         { name: 'QQQ', value: 'QQQ' },
       ),
   )
+  .addStringOption((opt) =>
+    opt.setName('timeframe').setDescription('Chart timeframe').addChoices(...TIMEFRAMES),
+  )
   .addBooleanOption((opt) =>
-    opt
-      .setName('test_mode')
-      .setDescription('Use relaxed filters to verify the connection works'),
+    opt.setName('sweeps_only').setDescription('Only show swept EQH/EQL levels'),
   );
 
 export async function execute(interaction) {
@@ -30,37 +37,39 @@ export async function execute(interaction) {
   }
 
   const ticker = interaction.options.getString('ticker') ?? 'SPY';
-  const testMode = interaction.options.getBoolean('test_mode') ?? true;
+  const timeframe = interaction.options.getString('timeframe') ?? '5m';
+  const sweepsOnly = interaction.options.getBoolean('sweeps_only') ?? false;
 
   await interaction.deferReply();
 
   try {
-    const thresholds = {
-      minPremium: config.monitors.optionsMinPremium,
-      minVoiRatio: config.monitors.optionsMinVoiRatio,
-    };
+    const { signals, diagnostics, symbol } = await scanTickerSmcFlow(ticker, {
+      timeframe,
+      tolerance: config.monitors.eqhEqlTolerance,
+      sweepsOnly,
+    });
 
-    const { signals, diagnostics, symbol } = await scanTickerVolumeFlow(ticker, thresholds, { testMode });
-    const displaySignals = signals.slice(0, 3);
+    const displaySignals = signals.slice(0, 5);
 
     if (displaySignals.length === 0) {
       const embed = new EmbedBuilder()
-        .setTitle(`🔍 Volume Flow Test — ${symbol}`)
+        .setTitle(`🔍 SMC Scan — ${symbol}`)
         .setColor(0x95a5a6)
         .setDescription(
-          testMode
-            ? 'Finnhub connected, but no unusual volume bars found right now.'
-            : 'No bars passed your alert thresholds. Try again with `test_mode: True`.',
+          sweepsOnly
+            ? 'No EQH/EQL sweeps detected right now.'
+            : 'No EQH/EQL clusters found where swing points are within $0.05.',
         )
         .addFields(
           { name: 'Finnhub status', value: '✅ Connected', inline: true },
           { name: 'Bars scanned', value: String(diagnostics.bars), inline: true },
-          { name: 'Bars with volume', value: String(diagnostics.barsWithVolume), inline: true },
-          { name: 'Mode', value: testMode ? 'Test (relaxed)' : 'Production filters', inline: true },
-          { name: 'Note', value: 'Finnhub tracks **stock volume flow**, not options contracts. SPX scans use SPY as a proxy.', inline: false },
-          { name: 'Tip', value: diagnostics.barsWithVolume === 0
-            ? 'Market may be closed. Try during market hours (9:30 AM–4 PM ET).'
-            : `Production needs dollar volume ≥ $${thresholds.minPremium.toLocaleString()} and vol ratio ≥ ${thresholds.minVoiRatio}x.`,
+          { name: 'Swing highs / lows', value: `${diagnostics.swingHighs} / ${diagnostics.swingLows}`, inline: true },
+          { name: 'EQH clusters', value: String(diagnostics.eqhClusters), inline: true },
+          { name: 'EQL clusters', value: String(diagnostics.eqlClusters), inline: true },
+          { name: 'Tolerance', value: `$${config.monitors.eqhEqlTolerance.toFixed(2)}`, inline: true },
+          { name: 'Tip', value: diagnostics.bars < 10
+            ? 'Market may be closed or not enough data. Try during market hours.'
+            : 'EQH/EQL requires at least 2 swing points within $0.05 of each other.',
             inline: false },
         )
         .setTimestamp();
@@ -69,17 +78,16 @@ export async function execute(interaction) {
       return;
     }
 
-    const embeds = displaySignals.map((signal) => buildVolumeFlowEmbed(signal));
-    const modeLabel = testMode ? '**Test mode** — relaxed filters' : '**Production filters**';
+    const embeds = displaySignals.map((signal) => buildSmcStructureEmbed(signal));
 
     await interaction.editReply({
-      content: `✅ Volume flow test passed for **${symbol}** (${modeLabel})\nShowing top ${displaySignals.length} signal(s):`,
+      content: `✅ **${symbol}** \`${timeframe}\` — found ${displaySignals.length} EQH/EQL level(s) within **$${config.monitors.eqhEqlTolerance.toFixed(2)}**:`,
       embeds,
     });
   } catch (err) {
     console.error('[flow]', err.message);
     await interaction.editReply({
-      content: `Flow test failed: ${err.message}\nCheck your FINNHUB_API_KEY in .env.`,
+      content: `Flow scan failed: ${err.message}\nCheck your FINNHUB_API_KEY in .env.`,
     });
   }
 }

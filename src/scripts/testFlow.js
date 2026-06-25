@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { config } from '../config.js';
-import { scanTickerVolumeFlow } from '../services/finnhub.js';
+import { scanTickerSmcFlow } from '../services/finnhub.js';
 
 const ticker = process.argv[2] ?? 'SPY';
 
@@ -9,32 +9,31 @@ if (!config.apis.finnhub) {
   process.exit(1);
 }
 
-console.log(`\n🔍 Testing Finnhub volume flow for ${ticker}...\n`);
+console.log(`\n🔍 Testing EQH/EQL scan for ${ticker} (tolerance $${config.monitors.eqhEqlTolerance})...\n`);
 
 try {
-  const thresholds = {
-    minPremium: config.monitors.optionsMinPremium,
-    minVoiRatio: config.monitors.optionsMinVoiRatio,
-  };
-
-  const { signals, diagnostics, symbol } = await scanTickerVolumeFlow(ticker, thresholds, { testMode: true });
-  const prodSignals = (await scanTickerVolumeFlow(ticker, thresholds)).signals;
+  const { signals, diagnostics, symbol } = await scanTickerSmcFlow(ticker, {
+    timeframe: '5m',
+    tolerance: config.monitors.eqhEqlTolerance,
+  });
 
   console.log(`✅ Finnhub connected`);
-  console.log(`   Symbol scanned:    ${symbol}`);
+  console.log(`   Symbol:            ${symbol}`);
   console.log(`   Bars scanned:      ${diagnostics.bars}`);
-  console.log(`   Bars with volume:  ${diagnostics.barsWithVolume}`);
-  console.log(`\n   Test mode signals: ${signals.length}`);
-  console.log(`   Production signals: ${prodSignals.length}`);
+  console.log(`   Swing highs/lows:  ${diagnostics.swingHighs} / ${diagnostics.swingLows}`);
+  console.log(`   EQH clusters:      ${diagnostics.eqhClusters}`);
+  console.log(`   EQL clusters:      ${diagnostics.eqlClusters}`);
+  console.log(`   Total signals:     ${signals.length}`);
+  console.log(`   Sweeps:            ${signals.filter((s) => s.swept).length}`);
 
   if (signals.length > 0) {
-    const top = signals[0];
-    console.log(`\n   Top signal: $${top.dollarVolume.toLocaleString()} dollar volume`);
-    console.log(`   Vol ratio: ${top.volRatio.toFixed(1)}x | ${top.direction}`);
-    console.log('\n✅ Volume flow is working!\n');
+    for (const s of signals.slice(0, 3)) {
+      console.log(`\n   ${s.type} @ $${s.level.toFixed(2)} (${s.touches} touches, spread $${s.spread.toFixed(2)})`);
+    }
+    console.log('\n✅ EQH/EQL scan is working!\n');
   } else if (diagnostics.bars > 0) {
-    console.log('\n⚠️  Finnhub works but no unusual volume right now.');
-    console.log('   Try during market hours (9:30 AM – 4 PM ET, Mon–Fri).\n');
+    console.log('\n⚠️  Connected but no EQH/EQL clusters within tolerance right now.');
+    console.log('   Try during market hours or a different ticker.\n');
   } else {
     console.log('\n❌ No candle data returned.\n');
     process.exit(1);

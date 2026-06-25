@@ -55,6 +55,7 @@ export const config = {
       .filter(Boolean),
     ivLowThreshold: parseNumber('IV_LOW_THRESHOLD', 10),
     ivHighThreshold: parseNumber('IV_HIGH_THRESHOLD', 90),
+    eqhEqlTolerance: parseNumber('EQH_EQL_TOLERANCE', 0.05),
     optionsTickers: ['SPY', 'SPX'],
   },
   cron: {
