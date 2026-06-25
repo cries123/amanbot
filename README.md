@@ -8,7 +8,7 @@ A modular Discord trading bot for your community, powered primarily by **Finnhub
 |--------|-------------|------|
 | SMC Scanner | Automated FVG + EQH/EQL detection on SPY, SPX, QQQ (5m) | Yahoo Finance |
 | SMC Webhook Alerts | TradingView webhook → Discord embeds (optional) | TradingView |
-| `/flow` | Live SMC scan on latest closed 5m candle | Yahoo Finance |
+| `/flow` | Live SMC scan — FVG on 5m, EQH/EQL on 5m/1h/4h | Yahoo Finance |
 | `/smctest` | Admin replay of last session's SMC setups | Yahoo Finance |
 | `/chart` | On-demand candlestick charts | Finnhub (+ Yahoo fallback) |
 | `/breakeven` | Options strategy risk/reward calculator | Internal math |
@@ -88,11 +88,14 @@ Supported `event_type` values: `EQH`, `EQL`, `FVG_CREATE`, `FVG_FILL` (or Tradin
 
 Renders a candlestick chart from Finnhub market data. Timeframes: `1m`, `5m`, `15m`, `1h`, `4h`, `1D`.
 
-### `/flow [ticker]`
+### `/flow [ticker] [timeframe]`
 
-Live SMC scan on the latest **closed** 5m candle. Detects Fair Value Gaps (FVG) and Equal Highs/Lows (EQH/EQL). Tickers: SPY, SPX, QQQ.
+Live SMC scan on the latest **closed** candle.
 
-### `/smctest [ticker]` (Admin only)
+- **5m** — FVG + EQH/EQL
+- **1h** / **4h** — EQH/EQL only (higher-timeframe structure)
+
+### `/smctest [ticker] [timeframe]` (Admin only)
 
 Replays SMC detection on the **last regular trading session** so you can verify the scanner before market open. Use `ALL` to scan SPY, SPX, and QQQ.
 
@@ -185,7 +188,8 @@ src/
 | `IV_WATCHLIST` | SPY,QQQ,... | Tickers to scan |
 | `FVG_MIN_GAP_PCT` | 0.02 | Minimum FVG gap size (%) |
 | `EQH_EQL_TOLERANCE_PCT` | 0.05 | Max pivot spread for EQH/EQL (%) |
-| `SMC_SCAN_CRON` | `1,6,11,... 9-16` | 5m SMC scan during market hours |
+| `SMC_TIMEFRAMES` | 5m,1h,4h | Timeframes to scan (1h/4h = EQH/EQL only) |
+| `SMC_SCAN_CRON` | `1,6,11,... 9-16` | Scan schedule (5m every 5 min, 1h hourly, 4h twice daily) |
 
 All cron schedules use `America/New_York` timezone.
 

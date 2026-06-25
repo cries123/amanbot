@@ -21,7 +21,7 @@ export function startSmcScanner(client, sendToChannel) {
 
       for (const result of results) {
         for (const signal of result.signals) {
-          const key = `${result.label}-${signal.type}-${signal.barTime}-${signal.zoneLow ?? signal.level}`;
+          const key = `${result.label}-${result.timeframe}-${signal.type}-${signal.barTime}-${signal.zoneLow ?? signal.level}`;
           const last = recentAlerts.get(key);
           if (last && Date.now() - last < DEDUP_MS) continue;
           recentAlerts.set(key, Date.now());
@@ -29,7 +29,7 @@ export function startSmcScanner(client, sendToChannel) {
           const embed = buildSmcAlertEmbed({
             ticker: result.label,
             signal,
-            timeframe: '5m',
+            timeframe: result.timeframe,
           });
 
           await sendToChannel(client, config.channels.smcAlerts, { embeds: [embed] });
@@ -41,7 +41,7 @@ export function startSmcScanner(client, sendToChannel) {
     { timezone: config.timezone },
   );
 
-  console.log('[smc-scanner] Yahoo Finance SMC monitor scheduled');
+  console.log(`[smc-scanner] Scheduled for ${config.monitors.smcTimeframes.join(', ')}`);
 }
 
 function isMarketHours() {

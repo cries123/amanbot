@@ -11,15 +11,27 @@ const TICKER_CHOICES = [
   { name: 'All (SPY, SPX, QQQ)', value: 'ALL' },
 ];
 
+const TIMEFRAME_CHOICES = [
+  { name: '5 minutes (FVG + EQH/EQL)', value: '5m' },
+  { name: '1 hour (EQH/EQL)', value: '1h' },
+  { name: '4 hours (EQH/EQL)', value: '4h' },
+];
+
 export const data = new SlashCommandBuilder()
   .setName('smctest')
-  .setDescription('Admin: replay SMC detection on the last regular trading session')
+  .setDescription('Admin: replay SMC detection on historical candles')
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addStringOption((opt) =>
     opt
       .setName('ticker')
       .setDescription('Ticker to backtest (default: all)')
       .addChoices(...TICKER_CHOICES),
+  )
+  .addStringOption((opt) =>
+    opt
+      .setName('timeframe')
+      .setDescription('Chart timeframe (default: 5m)')
+      .addChoices(...TIMEFRAME_CHOICES),
   );
 
 export async function execute(interaction) {
@@ -29,6 +41,7 @@ export async function execute(interaction) {
   }
 
   const selection = interaction.options.getString('ticker') ?? 'ALL';
+  const timeframe = interaction.options.getString('timeframe') ?? '5m';
   const tickers = selection === 'ALL' ? config.monitors.smcTickers : [selection];
 
   await interaction.deferReply({ ephemeral: true });
@@ -43,26 +56,35 @@ export async function execute(interaction) {
     }
 
     try {
-      const result = await scanTickerHistory(ticker);
-      summary.push(`**${result.label}** (${result.tradingDate}): ${result.signals.length} setup(s), ${result.candles.length} bars`);
+      const result = await scanTickerHistory(ticker, { timeframe });
+      const structureSignals = result.signals.filter((s) =>
+        ['EQH', 'EQL', 'EQH_SWEEP', 'EQL_SWEEP'].includes(s.type),
+      );
+      const displaySignals = timeframe === '5m' ? result.signals : structureSignals;
 
-      for (const signal of result.signals.slice(0, 5)) {
+      summary.push(
+        `**${result.label}** \`${timeframe}\` (${result.tradingDate}): ${displaySignals.length} setup(s), ${result.candles.length} bars`,
+      );
+
+      for (const signal of displaySignals.slice(-5)) {
         embeds.push(buildSmcAlertEmbed({
           ticker: result.label,
           signal,
-          timeframe: '5m',
+          timeframe,
         }));
       }
     } catch (err) {
-      summary.push(`**${ticker}**: failed — ${formatYahooError(err)}`);
+      summary.push(`**${ticker}** \`${timeframe}\`: failed — ${formatYahooError(err)}`);
     }
   }
 
   const header = new EmbedBuilder()
-    .setTitle('SMC History Test — Last Trading Session')
+    .setTitle(`SMC History Test — ${timeframe}`)
     .setColor(0x5865f2)
     .setDescription([
-      'Replayed FVG + EQH/EQL detection on Yahoo Finance 5m candles.',
+      timeframe === '5m'
+        ? 'Replayed FVG + EQH/EQL on Yahoo Finance candles.'
+        : 'Replayed EQH/EQL structure detection on higher-timeframe candles.',
       '',
       ...summary,
       '',
@@ -76,7 +98,7 @@ export async function execute(interaction) {
   };
 
   if (embeds.length > 9) {
-    payload.content = `Showing first 9 of ${embeds.length} setup embeds. Narrow to one ticker for the full list.`;
+    payload.content = `Showing last 9 of ${embeds.length} setup embeds. Narrow to one ticker for the full list.`;
   }
 
   await interaction.editReply(payload);

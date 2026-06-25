@@ -48,7 +48,7 @@ export function buildSmcAlertEmbed({ ticker, signal, timeframe = '5m' }) {
     );
   }
 
-  embed.setFooter({ text: 'Yahoo Finance SMC Scanner • 5m' });
+  embed.setFooter({ text: `Yahoo Finance SMC Scanner • ${timeframe}` });
   return embed;
 }
 

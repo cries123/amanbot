@@ -245,8 +245,14 @@ export function scanEqhEqlHistory(candles, { tolerancePct = 0.05, lookback = SWI
   return dedupeStructureSignals(signals);
 }
 
-export function scanAllSmc(candles, { minGapPct = 0.02, tolerancePct = 0.05, endIndex } = {}) {
+export function scanAllSmc(candles, { minGapPct = 0.02, tolerancePct = 0.05, endIndex, structuresOnly = false } = {}) {
   const last = endIndex ?? candles.length - 1;
+
+  if (structuresOnly) {
+    return scanEqhEqlHistory(candles.slice(0, last + 1), { tolerancePct })
+      .filter((s) => s.barIndex <= last);
+  }
+
   const fvgs = scanFvgs(candles, minGapPct, { endIndex: last });
   const structures = scanEqhEqlHistory(candles.slice(0, last + 1), { tolerancePct });
   return dedupeStructureSignals([...fvgs, ...structures.filter((s) => s.barIndex <= last)]);
@@ -257,11 +263,15 @@ export function scanLatestBar(candles, options) {
 
   const lastIndex = candles.length - 1;
   const minGapPct = options.minGapPct ?? 0.02;
-  const fvg = detectFvgAt(candles, lastIndex, minGapPct);
+  const structuresOnly = options.structuresOnly ?? false;
   const structures = scanEqhEqlAt(candles, lastIndex, options);
 
   const signals = [];
-  if (fvg) signals.push(fvg);
+
+  if (!structuresOnly) {
+    const fvg = detectFvgAt(candles, lastIndex, minGapPct);
+    if (fvg) signals.push(fvg);
+  }
 
   for (const sig of structures) {
     if (sig.swept) {

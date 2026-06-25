@@ -7,6 +7,14 @@ export const SMC_TICKERS = [
   { label: 'QQQ', symbol: 'QQQ' },
 ];
 
+export const SMC_TIMEFRAMES = {
+  '5m': { interval: '5m', barMinutes: 5, lookbackDays: 5, structuresOnly: false },
+  '1h': { interval: '1h', barMinutes: 60, lookbackDays: 60, structuresOnly: true },
+  '4h': { interval: '4h', barMinutes: 240, lookbackDays: 120, structuresOnly: true },
+};
+
+export const SMC_TIMEFRAME_LIST = Object.keys(SMC_TIMEFRAMES);
+
 const TICKER_MAP = Object.fromEntries(SMC_TICKERS.map((t) => [t.label, t.symbol]));
 
 const YAHOO_HOSTS = [
@@ -149,19 +157,20 @@ export async function fetchChartCandles(symbol, { interval = '5m', period1, peri
   throw lastError;
 }
 
-export async function fetchLiveCandles(ticker) {
+export async function fetchLiveCandles(ticker, timeframe = '5m') {
   const { label, symbol } = resolveSymbol(ticker);
+  const tf = SMC_TIMEFRAMES[timeframe] ?? SMC_TIMEFRAMES['5m'];
   const period2 = new Date();
   const period1 = new Date();
-  period1.setDate(period1.getDate() - 5);
+  period1.setDate(period1.getDate() - tf.lookbackDays);
 
   const candles = await fetchChartCandles(symbol, {
-    interval: '5m',
+    interval: tf.interval,
     period1,
     period2,
   });
 
-  return { label, symbol, candles };
+  return { label, symbol, candles, timeframe };
 }
 
 export function dropFormingCandle(candles, intervalMinutes = 5) {
@@ -226,22 +235,38 @@ export function getLastTradingSessionRange() {
   return { tradingDate, period1, period2 };
 }
 
-export async function fetchLastSessionCandles(ticker) {
+export async function fetchLastSessionCandles(ticker, timeframe = '5m') {
   const { label, symbol } = resolveSymbol(ticker);
-  const { tradingDate, period1, period2 } = getLastTradingSessionRange();
+  const tf = SMC_TIMEFRAMES[timeframe] ?? SMC_TIMEFRAMES['5m'];
 
-  const raw = await fetchChartCandles(symbol, {
-    interval: '5m',
+  if (timeframe === '5m') {
+    const { tradingDate, period1, period2 } = getLastTradingSessionRange();
+    const raw = await fetchChartCandles(symbol, {
+      interval: tf.interval,
+      period1,
+      period2,
+    });
+
+    const candles = filterRegularSessionCandles(raw, tradingDate);
+    if (candles.length === 0) {
+      throw new Error(`No regular-session 5m candles for ${label} on ${tradingDate}`);
+    }
+
+    return { label, symbol, candles, tradingDate, timeframe };
+  }
+
+  const period2 = new Date();
+  const period1 = new Date();
+  period1.setDate(period1.getDate() - tf.lookbackDays);
+
+  const candles = await fetchChartCandles(symbol, {
+    interval: tf.interval,
     period1,
     period2,
   });
 
-  const candles = filterRegularSessionCandles(raw, tradingDate);
-  if (candles.length === 0) {
-    throw new Error(`No regular-session 5m candles for ${label} on ${tradingDate}`);
-  }
-
-  return { label, symbol, candles, tradingDate };
+  const tradingDate = `last ${tf.lookbackDays}d`;
+  return { label, symbol, candles, tradingDate, timeframe };
 }
 
 export function formatYahooError(err) {

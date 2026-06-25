@@ -58,6 +58,10 @@ export const config = {
     eqhEqlTolerancePct: parseNumber('EQH_EQL_TOLERANCE_PCT', parseNumber('EQH_EQL_TOLERANCE', 0.05)),
     fvgMinGapPct: parseNumber('FVG_MIN_GAP_PCT', 0.02),
     smcTickers: ['SPY', 'SPX', 'QQQ'],
+    smcTimeframes: optionalEnv('SMC_TIMEFRAMES', '5m,1h,4h')
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => ['5m', '1h', '4h'].includes(t)),
   },
   cron: {
     ivScan: optionalEnv('IV_SCAN_CRON', '0 9,12,15 * * 1-5'),
