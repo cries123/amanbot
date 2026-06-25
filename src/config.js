@@ -54,14 +54,15 @@ export const config = {
       .filter(Boolean),
     ivLowThreshold: parseNumber('IV_LOW_THRESHOLD', 10),
     ivHighThreshold: parseNumber('IV_HIGH_THRESHOLD', 90),
-    eqhEqlTolerance: parseNumber('EQH_EQL_TOLERANCE', 0.05),
-    optionsTickers: ['SPY', 'SPX'],
+    eqhEqlTolerancePct: parseNumber('EQH_EQL_TOLERANCE_PCT', parseNumber('EQH_EQL_TOLERANCE', 0.05)),
+    fvgMinGapPct: parseNumber('FVG_MIN_GAP_PCT', 0.02),
+    smcTickers: ['SPY', 'SPX', 'QQQ'],
   },
   cron: {
     ivScan: optionalEnv('IV_SCAN_CRON', '0 9,12,15 * * 1-5'),
     economicWeekly: optionalEnv('ECONOMIC_WEEKLY_CRON', '0 7 * * 1'),
     economicWarning: optionalEnv('ECONOMIC_WARNING_CRON', '*/5 * * * *'),
-    optionsFlow: optionalEnv('OPTIONS_FLOW_CRON', '*/1 * * * * 1-5'),
+    smcScan: optionalEnv('SMC_SCAN_CRON', '1,6,11,16,21,26,31,36,41,46,51,56 9-15 * * 1-5'),
   },
   timezone: 'America/New_York',
 };

@@ -1,80 +1,43 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { config } from '../../config.js';
-import { scanTickerSmcFlow } from '../../services/finnhub.js';
-import { buildSmcStructureEmbed } from '../../utils/embeds.js';
+import { scanTickerLive } from '../../services/smcScanner.js';
+import { buildSmcAlertEmbed } from '../../utils/embeds.js';
 
-const TIMEFRAMES = [
-  { name: '5 minutes', value: '5m' },
-  { name: '15 minutes', value: '15m' },
-  { name: '1 hour', value: '1h' },
+const TICKER_CHOICES = [
+  { name: 'SPY', value: 'SPY' },
+  { name: 'SPX', value: 'SPX' },
+  { name: 'QQQ', value: 'QQQ' },
 ];
 
 export const data = new SlashCommandBuilder()
   .setName('flow')
-  .setDescription('Scan for EQH/EQL levels (swing points within $0.05)')
+  .setDescription('Live SMC scan — FVG, EQH, and EQL on 5m candles')
   .addStringOption((opt) =>
     opt
       .setName('ticker')
       .setDescription('Ticker to scan')
-      .setRequired(false)
-      .addChoices(
-        { name: 'SPY', value: 'SPY' },
-        { name: 'SPX (via SPY)', value: 'SPX' },
-        { name: 'QQQ', value: 'QQQ' },
-      ),
-  )
-  .addStringOption((opt) =>
-    opt.setName('timeframe').setDescription('Chart timeframe').addChoices(...TIMEFRAMES),
-  )
-  .addBooleanOption((opt) =>
-    opt.setName('sweeps_only').setDescription('Only show swept EQH/EQL levels'),
+      .addChoices(...TICKER_CHOICES),
   );
 
 export async function execute(interaction) {
-  if (!config.apis.finnhub) {
-    await interaction.reply({ content: 'FINNHUB_API_KEY is not configured in `.env`.', ephemeral: true });
-    return;
-  }
-
   const ticker = interaction.options.getString('ticker') ?? 'SPY';
-  const timeframe = interaction.options.getString('timeframe') ?? '5m';
-  const sweepsOnly = interaction.options.getBoolean('sweeps_only') ?? false;
 
   await interaction.deferReply();
 
   try {
-    const { signals, diagnostics, symbol, dataSource } = await scanTickerSmcFlow(ticker, {
-      timeframe,
-      tolerance: config.monitors.eqhEqlTolerance,
-      sweepsOnly,
-    });
+    const result = await scanTickerLive(ticker);
+    const { label, candles, signals } = result;
 
-    const displaySignals = signals.slice(0, 5);
-
-    if (displaySignals.length === 0) {
+    if (signals.length === 0) {
       const embed = new EmbedBuilder()
-        .setTitle(`🔍 SMC Scan — ${symbol}`)
+        .setTitle(`SMC Scan — ${label}`)
         .setColor(0x95a5a6)
-        .setDescription(
-          sweepsOnly
-            ? 'No EQH/EQL sweeps detected right now.'
-            : 'No EQH/EQL clusters found where swing points are within $0.05.',
-        )
+        .setDescription('No new FVG, EQH, or EQL setups on the latest closed 5m candle.')
         .addFields(
-          { name: 'Status', value: '✅ Connected', inline: true },
-          { name: 'Bars scanned', value: String(diagnostics.bars), inline: true },
-          { name: 'Swing highs / lows', value: `${diagnostics.swingHighs} / ${diagnostics.swingLows}`, inline: true },
-          { name: 'EQH clusters', value: String(diagnostics.eqhClusters), inline: true },
-          { name: 'EQL clusters', value: String(diagnostics.eqlClusters), inline: true },
-          { name: 'Tolerance', value: `$${config.monitors.eqhEqlTolerance.toFixed(2)}`, inline: true },
-          { name: 'Data source', value: dataSource ?? 'Unknown', inline: false },
-          {
-            name: 'Tip',
-            value: diagnostics.bars < 10
-              ? 'Market may be closed or not enough data. Try during market hours.'
-              : 'EQH/EQL requires at least 2 swing points within $0.05 of each other.',
-            inline: false,
-          },
+          { name: 'Bars loaded', value: String(candles.length), inline: true },
+          { name: 'FVG min gap', value: `${config.monitors.fvgMinGapPct}%`, inline: true },
+          { name: 'EQH/EQL tolerance', value: `${config.monitors.eqhEqlTolerancePct}%`, inline: true },
+          { name: 'Data source', value: 'Yahoo Finance (5m)', inline: false },
         )
         .setTimestamp();
 
@@ -82,19 +45,18 @@ export async function execute(interaction) {
       return;
     }
 
-    const embeds = displaySignals.map((signal) => buildSmcStructureEmbed(signal));
+    const embeds = signals.map((signal) => buildSmcAlertEmbed({
+      ticker: label,
+      signal,
+      timeframe: '5m',
+    }));
 
     await interaction.editReply({
-      content: `✅ **${symbol}** \`${timeframe}\` — found ${displaySignals.length} EQH/EQL level(s) within **$${config.monitors.eqhEqlTolerance.toFixed(2)}**\n*${dataSource}*`,
+      content: `**${label}** — ${signals.length} setup(s) on the latest closed 5m bar`,
       embeds,
     });
   } catch (err) {
     console.error('[flow]', err.message);
-    const hint = err.message.includes('403') || err.message.includes('Market Data')
-      ? '\n\nYour Finnhub key is valid, but **candle data requires a paid Finnhub Market Data plan**. The bot should auto-fallback to Yahoo — update your `src` folder from GitHub.'
-      : '';
-    await interaction.editReply({
-      content: `Flow scan failed: ${err.message}${hint}`,
-    });
+    await interaction.editReply({ content: `SMC scan failed: ${err.message}` });
   }
 }

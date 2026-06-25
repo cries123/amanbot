@@ -6,9 +6,11 @@ A modular Discord trading bot for your community, powered primarily by **Finnhub
 
 | Module | Description | APIs |
 |--------|-------------|------|
-| SMC Structure Alerts | TradingView webhook → Discord embeds for EQH/EQL sweeps and FVG creation/fills | TradingView (your alerts) |
-| `/chart` | On-demand candlestick charts from Finnhub OHLCV data | Finnhub |
-| `/flow` | EQH/EQL structure scan (within $0.05) | Finnhub |
+| SMC Scanner | Automated FVG + EQH/EQL detection on SPY, SPX, QQQ (5m) | Yahoo Finance |
+| SMC Webhook Alerts | TradingView webhook → Discord embeds (optional) | TradingView |
+| `/flow` | Live SMC scan on latest closed 5m candle | Yahoo Finance |
+| `/smctest` | Admin replay of last session's SMC setups | Yahoo Finance |
+| `/chart` | On-demand candlestick charts | Finnhub (+ Yahoo fallback) |
 | `/breakeven` | Options strategy risk/reward calculator | Internal math |
 | IV Extremes | Alerts when realized vol percentile hits extremes | Finnhub |
 | Economic Calendar | Monday overview + 30-min warnings before CPI, FOMC, NFP, etc. | Finnhub |
@@ -86,6 +88,14 @@ Supported `event_type` values: `EQH`, `EQL`, `FVG_CREATE`, `FVG_FILL` (or Tradin
 
 Renders a candlestick chart from Finnhub market data. Timeframes: `1m`, `5m`, `15m`, `1h`, `4h`, `1D`.
 
+### `/flow [ticker]`
+
+Live SMC scan on the latest **closed** 5m candle. Detects Fair Value Gaps (FVG) and Equal Highs/Lows (EQH/EQL). Tickers: SPY, SPX, QQQ.
+
+### `/smctest [ticker]` (Admin only)
+
+Replays SMC detection on the **last regular trading session** so you can verify the scanner before market open. Use `ALL` to scan SPY, SPX, and QQQ.
+
 ### `/breakeven [strategy] [strike] [premium] [strike2] [contracts]`
 
 Strategies:
@@ -102,24 +112,28 @@ Create dedicated Discord channels and set their IDs in `.env`:
 
 | Variable | Purpose |
 |----------|---------|
-| `CHANNEL_SMC_ALERTS` | TradingView structure alerts |
-| `CHANNEL_OPTIONS_FLOW` | Unusual volume flow pings |
+| `CHANNEL_SMC_ALERTS` | Automated Yahoo SMC scanner alerts (FVG, EQH, EQL) |
+| `CHANNEL_OPTIONS_FLOW` | Legacy channel (unused by SMC scanner) |
 | `CHANNEL_IV_ALERTS` | IV extreme notifications |
 | `CHANNEL_ECONOMIC` | Economic calendar & warnings |
 
 ## API Dependencies & Notes
 
-### Finnhub (primary — only key required)
-- **Charts**: `/stock/candle` OHLCV → rendered as candlestick PNG
-- **Volume flow**: Detects unusual intraday volume spikes on SPY/QQQ (SPX uses SPY proxy)
+### Yahoo Finance (SMC scanner — no API key)
+- **5m OHLCV**: `yahoo-finance2` chart API for SPY, ^GSPC (SPX), QQQ
+- **FVG**: Bullish when candle 3 low > candle 1 high; bearish when candle 3 high < candle 1 low
+- **EQH/EQL**: Swing pivots within `EQH_EQL_TOLERANCE_PCT` (default 0.05%)
+- Runs every 5 minutes during regular market hours via `SMC_SCAN_CRON`
+
+### Finnhub (charts, IV, calendar, news)
+- **Charts**: `/stock/candle` OHLCV → rendered as candlestick PNG (Yahoo fallback on 403)
 - **IV monitor**: Realized volatility percentile from daily candles
 - **Economic calendar**: `/calendar/economic` — filtered for CPI, FOMC, NFP, etc.
 
-> **Note:** Finnhub does not offer options flow data. `/flow` scans **EQH/EQL structure** from candle data, not options contracts.
+> **Note:** The SMC scanner uses Yahoo Finance locally — no TradingView webhooks or premium chart APIs required.
 
 ### PostgreSQL
 - Optional for IV alert history and deduplicating economic warnings
-- Optional for IV alert history
 
 ## Deployment
 
@@ -144,13 +158,13 @@ src/
 │   └── handlers/            # Interaction routing
 ├── services/
 │   ├── chartimg.js          # Chart-img API
-│   ├── polygon.js           # Polygon options & IV
-│   └── finnhub.js           # Economic calendar & SPY data
+│   ├── yahooMarket.js       # Yahoo Finance 5m candles
+│   ├── smcScanner.js        # Live + history SMC scans
+│   └── finnhub.js           # Economic calendar, IV, charts
 ├── monitors/
-│   ├── optionsFlow.js       # 0DTE flow scanner
+│   ├── smcScanner.js        # Automated FVG/EQH/EQL alerts
 │   ├── ivMonitor.js         # IV percentile alerts
-│   ├── economicCalendar.js  # Weekly + 30-min warnings
-│   └── sentimentPolls.js    # Daily polls + grading
+│   └── economicCalendar.js  # Weekly + 30-min warnings
 ├── webhooks/
 │   └── tradingview.js       # SMC alert endpoint
 ├── database/
@@ -169,7 +183,9 @@ src/
 | `IV_LOW_THRESHOLD` | 10 | IV percentile low alert |
 | `IV_HIGH_THRESHOLD` | 90 | IV percentile high alert |
 | `IV_WATCHLIST` | SPY,QQQ,... | Tickers to scan |
-| `SENTIMENT_POLL_CRON` | `0 8 * * 1-5` | 8 AM ET weekdays |
+| `FVG_MIN_GAP_PCT` | 0.02 | Minimum FVG gap size (%) |
+| `EQH_EQL_TOLERANCE_PCT` | 0.05 | Max pivot spread for EQH/EQL (%) |
+| `SMC_SCAN_CRON` | `1,6,11,... 9-16` | 5m SMC scan during market hours |
 
 All cron schedules use `America/New_York` timezone.
 
