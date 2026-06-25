@@ -4,7 +4,6 @@ import { createWebhookServer } from './webhooks/tradingview.js';
 import { startOptionsFlowMonitor } from './monitors/optionsFlow.js';
 import { startIvMonitor } from './monitors/ivMonitor.js';
 import { startEconomicCalendar } from './monitors/economicCalendar.js';
-import { startSentimentPolls } from './monitors/sentimentPolls.js';
 
 async function main() {
   console.log('[amanbot] Starting...');
@@ -19,7 +18,6 @@ async function main() {
   startOptionsFlowMonitor(client, send);
   startIvMonitor(client, send);
   startEconomicCalendar(client, send);
-  startSentimentPolls(client, send);
 
   console.log('[amanbot] All modules loaded');
 }

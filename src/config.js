@@ -28,7 +28,6 @@ export const config = {
     optionsFlow: optionalEnv('CHANNEL_OPTIONS_FLOW'),
     ivAlerts: optionalEnv('CHANNEL_IV_ALERTS'),
     economic: optionalEnv('CHANNEL_ECONOMIC'),
-    sentiment: optionalEnv('CHANNEL_SENTIMENT'),
   },
   apis: {
     chartImg: optionalEnv('CHART_IMG_API_KEY'),
@@ -59,7 +58,6 @@ export const config = {
     optionsTickers: ['SPY', 'SPX'],
   },
   cron: {
-    sentimentPoll: optionalEnv('SENTIMENT_POLL_CRON', '0 8 * * 1-5'),
     ivScan: optionalEnv('IV_SCAN_CRON', '0 9,12,15 * * 1-5'),
     economicWeekly: optionalEnv('ECONOMIC_WEEKLY_CRON', '0 7 * * 1'),
     economicWarning: optionalEnv('ECONOMIC_WARNING_CRON', '*/5 * * * *'),

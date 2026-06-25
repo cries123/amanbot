@@ -8,13 +8,11 @@ A modular Discord trading bot for your community, powered primarily by **Finnhub
 |--------|-------------|------|
 | SMC Structure Alerts | TradingView webhook → Discord embeds for EQH/EQL sweeps and FVG creation/fills | TradingView (your alerts) |
 | `/chart` | On-demand candlestick charts from Finnhub OHLCV data | Finnhub |
-| Volume Flow | Live monitor for unusual stock volume on SPY/SPX | Finnhub |
-| `/flow` | Manual unusual volume scan | Finnhub |
+| `/flow` | EQH/EQL structure scan (within $0.05) | Finnhub |
 | `/breakeven` | Options strategy risk/reward calculator | Internal math |
 | IV Extremes | Alerts when realized vol percentile hits extremes | Finnhub |
-| Sentiment Polls | Daily pre-market poll with accuracy leaderboard | Postgres + Finnhub |
 | Economic Calendar | Monday overview + 30-min warnings before CPI, FOMC, NFP, etc. | Finnhub |
-| `/stats` | Community sentiment win-rate stats | Postgres |
+| `/news` | Live ticker news headlines | Finnhub |
 
 ## Quick Start
 
@@ -33,7 +31,7 @@ cp .env.example .env
 # Fill in all values in .env
 ```
 
-### 3. Set Up PostgreSQL (for polls & stats)
+### 3. Set Up PostgreSQL (optional — for IV history & economic dedup)
 
 ```bash
 createdb amanbot
@@ -97,9 +95,6 @@ Strategies:
 
 Returns breakeven price(s), max reward, and max risk.
 
-### `/stats`
-
-Shows community sentiment poll accuracy, win rate, and top predictors.
 
 ## Channel Setup
 
@@ -111,7 +106,6 @@ Create dedicated Discord channels and set their IDs in `.env`:
 | `CHANNEL_OPTIONS_FLOW` | Unusual volume flow pings |
 | `CHANNEL_IV_ALERTS` | IV extreme notifications |
 | `CHANNEL_ECONOMIC` | Economic calendar & warnings |
-| `CHANNEL_SENTIMENT` | Daily sentiment polls |
 
 ## API Dependencies & Notes
 
@@ -120,12 +114,11 @@ Create dedicated Discord channels and set their IDs in `.env`:
 - **Volume flow**: Detects unusual intraday volume spikes on SPY/QQQ (SPX uses SPY proxy)
 - **IV monitor**: Realized volatility percentile from daily candles
 - **Economic calendar**: `/calendar/economic` — filtered for CPI, FOMC, NFP, etc.
-- **Sentiment grading**: SPY daily candle to determine bullish/bearish close
 
-> **Note:** Finnhub does not offer options flow data. `/flow` scans **stock volume**, not options contracts. For true 0DTE options flow you'd need Polygon or Unusual Whales.
+> **Note:** Finnhub does not offer options flow data. `/flow` scans **EQH/EQL structure** from candle data, not options contracts.
 
 ### PostgreSQL
-- Required for sentiment polls, vote tracking, leaderboard, and deduplication of economic warnings
+- Optional for IV alert history and deduplicating economic warnings
 - Optional for IV alert history
 
 ## Deployment

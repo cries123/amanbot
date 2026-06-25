@@ -197,23 +197,6 @@ export function buildWeeklyEconomicEmbed(events) {
   return embed;
 }
 
-export function buildStatsEmbed(stats) {
-  return new EmbedBuilder()
-    .setTitle('🏆 Community Sentiment Stats')
-    .setColor(0xf1c40f)
-    .addFields(
-      { name: 'Total Polls', value: String(stats.totalPolls), inline: true },
-      { name: 'Community Win Rate', value: `${stats.communityWinRate.toFixed(1)}%`, inline: true },
-      { name: 'Bullish Bias', value: `${stats.bullishPct.toFixed(1)}%`, inline: true },
-    )
-    .setDescription(
-      stats.topUsers.length
-        ? `**Top Predictors**\n${stats.topUsers.map((u, i) => `${i + 1}. <@${u.userId}> — ${u.winRate.toFixed(0)}% (${u.wins}W/${u.losses}L)`).join('\n')}`
-        : 'No graded polls yet. Vote in the daily morning poll!',
-    )
-    .setTimestamp();
-}
-
 const SOCIAL_PLATFORMS = [
   {
     name: 'Instagram',
@@ -255,4 +238,32 @@ export function buildSocialEmbeds() {
     .setTimestamp();
 
   return [embed];
+}
+
+export function buildNewsEmbed({ symbol, articles, source }) {
+  const embed = new EmbedBuilder()
+    .setTitle(`📰 Live News — ${symbol}`)
+    .setColor(0x2563eb)
+    .setDescription(`Most recent headlines affecting **${symbol}** — fetched live.`)
+    .setTimestamp();
+
+  for (const article of articles) {
+    const headline = article.headline.length > 200
+      ? `${article.headline.slice(0, 197)}...`
+      : article.headline;
+
+    embed.addFields({
+      name: headline,
+      value: [
+        `**[Read article](${article.url})**`,
+        `**${article.source}** • ${formatRelativeTime(article.publishedAt)}`,
+        '',
+        article.summary,
+      ].join('\n').slice(0, 1024),
+      inline: false,
+    });
+  }
+
+  embed.setFooter({ text: `Live via ${source} • Not financial advice` });
+  return embed;
 }

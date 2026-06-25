@@ -80,7 +80,6 @@ function testDiscordEnv() {
     'CHANNEL_OPTIONS_FLOW',
     'CHANNEL_IV_ALERTS',
     'CHANNEL_ECONOMIC',
-    'CHANNEL_SENTIMENT',
   ];
 
   const missing = required.filter((k) => !process.env[k] || process.env[k].includes('your_') || process.env[k].includes('channel_id'));
@@ -91,12 +90,27 @@ function testDiscordEnv() {
   }
 }
 
+async function testFinnhubNews() {
+  if (!process.env.FINNHUB_API_KEY || process.env.FINNHUB_API_KEY.includes('your_')) {
+    fail('Finnhub News', 'FINNHUB_API_KEY missing');
+    return;
+  }
+
+  try {
+    const { articles, source } = await fetchTickerNews('SPY', 3);
+    pass('Finnhub News', `${articles.length} articles via ${source} — latest: "${articles[0].headline.slice(0, 50)}..."`);
+  } catch (err) {
+    fail('Finnhub News', err.message);
+  }
+}
+
 console.log('\n🔍 AmanBot API Key Test\n');
 
 testDiscordEnv();
 await testFinnhub();
 await testFinnhubChart();
 await testFinnhubFlow();
+await testFinnhubNews();
 
 for (const { name, ok, detail } of results) {
   console.log(`${ok ? '✅' : '❌'} ${name}: ${detail}`);

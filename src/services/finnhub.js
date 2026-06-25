@@ -75,37 +75,6 @@ function normalizeImpact(impact) {
   return 'low';
 }
 
-export async function getSpyDailyChange() {
-  const today = new Date().toISOString().slice(0, 10);
-  const from = new Date();
-  from.setDate(from.getDate() - 5);
-  const fromStr = from.toISOString().slice(0, 10);
-
-  const { data } = await finnhubGet('/stock/candle', {
-    symbol: 'SPY',
-    resolution: 'D',
-    from: Math.floor(new Date(fromStr).getTime() / 1000),
-    to: Math.floor(Date.now() / 1000),
-  });
-
-  let c = data.c;
-  let o = data.o;
-
-  if (data.s !== 'ok') {
-    const fallback = await getStockCandles('SPY', 'D', Math.floor(new Date(fromStr).getTime() / 1000), Math.floor(Date.now() / 1000));
-    c = fallback.c;
-    o = fallback.o;
-  }
-
-  if (!c?.length) {
-    return null;
-  }
-
-  const last = c.length - 1;
-  const change = c[last] - o[last];
-  return change >= 0 ? 'bullish' : 'bearish';
-}
-
 export function getWeekRange() {
   const now = new Date();
   const day = now.getDay();

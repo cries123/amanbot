@@ -1,7 +1,6 @@
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { config } from '../config.js';
 import { loadCommands, handleInteraction } from './handlers/commandHandler.js';
-import { setupSentimentHandlers } from './handlers/sentimentHandler.js';
 
 export async function createBot() {
   const client = new Client({
@@ -16,7 +15,6 @@ export async function createBot() {
   });
 
   client.on('interactionCreate', (interaction) => handleInteraction(interaction, commands));
-  setupSentimentHandlers(client);
 
   await client.login(config.discord.token);
   return { client, commands };
