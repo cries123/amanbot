@@ -170,3 +170,54 @@ export function buildStatsEmbed(stats) {
     )
     .setTimestamp();
 }
+
+const SOCIAL_PLATFORMS = [
+  {
+    name: 'Instagram',
+    handle: '@amantradesss',
+    url: 'https://www.instagram.com/amantradesss',
+    color: 0xe4405f,
+    icon: 'https://cdn.simpleicons.org/instagram/white',
+    tagline: 'Charts, setups & daily market clips',
+  },
+  {
+    name: 'X (Twitter)',
+    handle: '@amantradesss',
+    url: 'https://x.com/amantradesss',
+    color: 0x000000,
+    icon: 'https://cdn.simpleicons.org/x/white',
+    tagline: 'Real-time thoughts & trade alerts',
+  },
+  {
+    name: 'YouTube',
+    handle: '@amantradess',
+    url: 'https://www.youtube.com/@amantradess',
+    color: 0xff0000,
+    icon: 'https://cdn.simpleicons.org/youtube/white',
+    tagline: 'Full breakdowns & educational content',
+  },
+];
+
+export function buildSocialEmbeds() {
+  const header = new EmbedBuilder()
+    .setTitle('⚡ Aman Trades — Official Socials')
+    .setDescription(
+      '**Follow across all platforms** for charts, flow, and market breakdowns.\n\u200b',
+    )
+    .setColor(0x1a1a2e)
+    .setThumbnail('https://cdn.simpleicons.org/chartline/FFD700')
+    .setFooter({ text: 'Tap a platform below to follow' })
+    .setTimestamp();
+
+  const platformEmbeds = SOCIAL_PLATFORMS.map((platform) =>
+    new EmbedBuilder()
+      .setAuthor({ name: platform.name, iconURL: platform.icon, url: platform.url })
+      .setDescription(
+        `${platform.tagline}\n\n**[${platform.handle}](${platform.url})**\n[Click to follow →](${platform.url})`,
+      )
+      .setColor(platform.color)
+      .setThumbnail(platform.icon),
+  );
+
+  return [header, ...platformEmbeds];
+}
