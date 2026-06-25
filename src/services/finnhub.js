@@ -1,6 +1,12 @@
 import axios from 'axios';
 import { config } from '../config.js';
-import { scanEqhEql } from '../utils/smcStructure.js';
+import {
+  normalizeCandles,
+  findSwingHighs,
+  findSwingLows,
+  clusterSwingsByPercent,
+  scanEqhEqlHistory,
+} from '../utils/smcStructure.js';
 import { getStockCandles, getCandleSourceLabel } from './candles.js';
 
 const BASE = 'https://finnhub.io/api/v1';
@@ -223,17 +229,24 @@ const FLOW_RESOLUTION_MAP = {
 export async function scanTickerSmcFlow(ticker, options = {}) {
   const symbol = normalizeTicker(ticker);
   const resolution = FLOW_RESOLUTION_MAP[options.timeframe] ?? '5';
-  const tolerance = options.tolerance ?? 0.05;
+  const tolerancePct = options.tolerancePct ?? options.tolerance ?? 0.05;
   const sweepsOnly = options.sweepsOnly ?? false;
 
-  const candles = await getIntradayCandles(symbol, resolution, 150);
+  const raw = await getIntradayCandles(symbol, resolution, 150);
+  const candles = normalizeCandles(raw);
 
-  const result = scanEqhEql(candles, { tolerance });
-  let signals = result.signals.map((s) => ({
+  const swingHighs = findSwingHighs(candles);
+  const swingLows = findSwingLows(candles);
+  const eqhClusters = clusterSwingsByPercent(swingHighs, tolerancePct);
+  const eqlClusters = clusterSwingsByPercent(swingLows, tolerancePct);
+
+  let signals = scanEqhEqlHistory(candles, { tolerancePct }).map((s) => ({
     ...s,
     underlying: symbol,
     timeframe: options.timeframe ?? '5m',
-    dataSource: getCandleSourceLabel(candles),
+    dataSource: getCandleSourceLabel(raw),
+    spread: s.spreadPct,
+    tolerance: tolerancePct,
   }));
 
   if (sweepsOnly) {
@@ -241,11 +254,17 @@ export async function scanTickerSmcFlow(ticker, options = {}) {
   }
 
   return {
-    ...result,
     signals,
+    diagnostics: {
+      bars: candles.length,
+      swingHighs: swingHighs.length,
+      swingLows: swingLows.length,
+      eqhClusters: eqhClusters.length,
+      eqlClusters: eqlClusters.length,
+    },
     symbol,
     timeframe: options.timeframe ?? '5m',
-    dataSource: getCandleSourceLabel(candles),
+    dataSource: getCandleSourceLabel(raw),
   };
 }
 
