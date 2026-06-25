@@ -180,6 +180,8 @@ function buildStructureSignal(cluster, structure, candles, endIndex, toleranceDo
 
   const bar = candles[signalIndex];
 
+  const formationTime = cluster.points[cluster.points.length - 1]?.time ?? candles[cluster.lastIndex].t;
+
   return {
     setupType: swept
       ? (isEqh ? 'EQH Sweep' : 'EQL Sweep')
@@ -195,6 +197,8 @@ function buildStructureSignal(cluster, structure, candles, endIndex, toleranceDo
     tolerance: toleranceDollars,
     touches: cluster.touches,
     formationIndex: cluster.lastIndex,
+    formationTime,
+    touchTimes: cluster.points.map((p) => p.time),
     price: round2(bar.c),
     swept,
     barIndex: signalIndex,
@@ -202,24 +206,130 @@ function buildStructureSignal(cluster, structure, candles, endIndex, toleranceDo
   };
 }
 
-function sessionExtremePoints(candles, sessionStart, sessionEnd, structure) {
+function findPairClusters(candles, sessionStart, sessionEnd, structure, toleranceDollars, minBarSeparation) {
+  const clusters = [];
+  const isEqh = structure === 'EQH';
   const points = [];
+
   for (let i = sessionStart; i <= sessionEnd; i++) {
     points.push({
-      price: structure === 'EQH' ? candles[i].h : candles[i].l,
+      price: isEqh ? candles[i].h : candles[i].l,
       index: i,
       time: candles[i].t,
     });
   }
-  return points;
+
+  const usedPairs = new Set();
+
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      if (points[j].index - points[i].index < minBarSeparation) continue;
+      const spread = Math.abs(points[i].price - points[j].price);
+      if (spread > toleranceDollars) continue;
+
+      const key = `${points[i].index}-${points[j].index}`;
+      if (usedPairs.has(key)) continue;
+      usedPairs.add(key);
+
+      const pair = [points[i], points[j]];
+      const minPrice = Math.min(...pair.map((p) => p.price));
+      const maxPrice = Math.max(...pair.map((p) => p.price));
+      clusters.push({
+        level: round2((minPrice + maxPrice) / 2),
+        minPrice: round2(minPrice),
+        maxPrice: round2(maxPrice),
+        spread: round2(maxPrice - minPrice),
+        spreadPct: round2(percentSpread(minPrice, maxPrice)),
+        touches: 2,
+        points: pair,
+        lastIndex: Math.max(...pair.map((p) => p.index)),
+        firstIndex: Math.min(...pair.map((p) => p.index)),
+      });
+    }
+  }
+
+  return clusters;
+}
+
+function findSessionExtremeClusters(candles, sessionStart, sessionEnd, structure, bandDollars) {
+  const isEqh = structure === 'EQH';
+  const points = [];
+
+  for (let i = sessionStart; i <= sessionEnd; i++) {
+    points.push({
+      price: isEqh ? candles[i].h : candles[i].l,
+      index: i,
+      time: candles[i].t,
+    });
+  }
+
+  if (points.length < 2) return [];
+
+  const extreme = isEqh
+    ? Math.max(...points.map((p) => p.price))
+    : Math.min(...points.map((p) => p.price));
+
+  const nearExtreme = points.filter((p) =>
+    isEqh ? extreme - p.price <= bandDollars : p.price - extreme <= bandDollars,
+  );
+
+  const indices = new Set(nearExtreme.map((p) => p.index));
+  if (indices.size < 2) return [];
+
+  const minPrice = Math.min(...nearExtreme.map((p) => p.price));
+  const maxPrice = Math.max(...nearExtreme.map((p) => p.price));
+
+  return [{
+    level: round2((minPrice + maxPrice) / 2),
+    minPrice: round2(minPrice),
+    maxPrice: round2(maxPrice),
+    spread: round2(maxPrice - minPrice),
+    spreadPct: round2(percentSpread(minPrice, maxPrice)),
+    touches: nearExtreme.length,
+    points: nearExtreme,
+    lastIndex: Math.max(...nearExtreme.map((p) => p.index)),
+    firstIndex: Math.min(...nearExtreme.map((p) => p.index)),
+    sessionExtreme: true,
+  }];
+}
+
+function mergeClusters(...clusterGroups) {
+  const all = clusterGroups.flat();
+  const merged = [];
+
+  for (const cluster of all) {
+    const duplicate = merged.find((existing) => {
+      const overlap = cluster.points.some((p) =>
+        existing.points.some((e) => e.index === p.index),
+      );
+      const sameZone = Math.abs(existing.level - cluster.level) <= 0.06;
+      return overlap || sameZone;
+    });
+
+    if (!duplicate) {
+      merged.push(cluster);
+    }
+  }
+
+  return merged;
+}
+
+export function rankStructureSignals(signals, structure = 'EQL') {
+  const isEqh = structure === 'EQH';
+  return [...signals].sort((a, b) => {
+    if (a.swept !== b.swept) return a.swept ? -1 : 1;
+    if (isEqh) return b.level - a.level;
+    return a.level - b.level;
+  });
 }
 
 export function scanSessionEqhEql(candles, {
   sessionStart = 0,
   sessionEnd,
   toleranceDollars = 0.05,
-  lookback = 1,
-  useAllExtremes = true,
+  sessionExtremeBand = 0.4,
+  lookback = 2,
+  minBarSeparation = 3,
 } = {}) {
   const end = sessionEnd ?? candles.length - 1;
   if (end < sessionStart || candles.length < 2) return [];
@@ -229,23 +339,17 @@ export function scanSessionEqhEql(candles, {
   const swingLows = findSwingLows(candles, lookback)
     .filter((s) => s.index >= sessionStart && s.index <= end);
 
-  const highPoints = useAllExtremes
-    ? sessionExtremePoints(candles, sessionStart, end, 'EQH')
-    : swingHighs;
-  const lowPoints = useAllExtremes
-    ? sessionExtremePoints(candles, sessionStart, end, 'EQL')
-    : swingLows;
+  const eqhClusters = mergeClusters(
+    clusterSwingsByDollars(swingHighs, toleranceDollars),
+    findPairClusters(candles, sessionStart, end, 'EQH', toleranceDollars, minBarSeparation),
+    findSessionExtremeClusters(candles, sessionStart, end, 'EQH', sessionExtremeBand),
+  );
 
-  const eqhClusters = clusterSwingsByDollars(highPoints, toleranceDollars)
-    .filter((cluster) => {
-      const indices = new Set(cluster.points.map((p) => p.index));
-      return indices.size >= 2;
-    });
-  const eqlClusters = clusterSwingsByDollars(lowPoints, toleranceDollars)
-    .filter((cluster) => {
-      const indices = new Set(cluster.points.map((p) => p.index));
-      return indices.size >= 2;
-    });
+  const eqlClusters = mergeClusters(
+    clusterSwingsByDollars(swingLows, toleranceDollars),
+    findPairClusters(candles, sessionStart, end, 'EQL', toleranceDollars, minBarSeparation),
+    findSessionExtremeClusters(candles, sessionStart, end, 'EQL', sessionExtremeBand),
+  );
 
   const signals = [
     ...eqhClusters.map((cluster) => buildStructureSignal(cluster, 'EQH', candles, end, toleranceDollars)),
@@ -387,6 +491,8 @@ export function scanEqhEqlHistory(candles, { toleranceDollars = 0.05, lookback =
 export function scanAllSmc(candles, {
   minGapPct = 0.02,
   toleranceDollars = 0.05,
+  sessionExtremeBand = 0.4,
+  minBarSeparation = 3,
   endIndex,
   structuresOnly = false,
   lookback = DEFAULT_SWING_LOOKBACK,
@@ -400,7 +506,9 @@ export function scanAllSmc(candles, {
       sessionStart,
       sessionEnd: last,
       toleranceDollars,
+      sessionExtremeBand,
       lookback,
+      minBarSeparation,
     });
   }
 

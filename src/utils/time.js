@@ -1,3 +1,12 @@
+export function formatEtTime(unixSeconds) {
+  return new Date(unixSeconds * 1000).toLocaleString('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  });
+}
+
 export function formatRelativeTime(dateInput) {
   const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
   const diffMs = Date.now() - date.getTime();

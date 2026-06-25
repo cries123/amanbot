@@ -17,7 +17,9 @@ function scannerOptions(overrides = {}, timeframe = '5m') {
   return {
     minGapPct: overrides.minGapPct ?? config.monitors.fvgMinGapPct,
     toleranceDollars: overrides.toleranceDollars ?? config.monitors.eqhEqlTolerance,
+    sessionExtremeBand: overrides.sessionExtremeBand ?? config.monitors.eqhEqlSessionBand,
     lookback: overrides.lookback ?? tf.swingLookback,
+    minBarSeparation: overrides.minBarSeparation ?? tf.minBarSeparation,
     structuresOnly: overrides.structuresOnly ?? tf.structuresOnly,
     sessionStart: overrides.sessionStart,
     sessionEnd: overrides.sessionEnd,
@@ -46,7 +48,7 @@ export async function scanTickerLive(ticker, overrides = {}) {
   }, timeframe);
 
   let signals;
-  if (options.structuresOnly && timeframe !== '5m') {
+  if (options.structuresOnly) {
     signals = scanAllSmc(candles, { ...options, sessionEnd: Math.min(sessionEnd, endIndex) });
   } else {
     signals = scanLatestBar(candles, options);

@@ -1,5 +1,5 @@
 import { EmbedBuilder } from 'discord.js';
-import { formatRelativeTime } from './time.js';
+import { formatEtTime } from './time.js';
 
 const SMC_COLORS = {
   EQH: 0xe74c3c,
@@ -43,6 +43,7 @@ export function buildSmcAlertEmbed({ ticker, signal, timeframe = '5m' }) {
       { name: 'Spread', value: `\`$${signal.spread.toFixed(2)}\` (≤ $${signal.tolerance.toFixed(2)})`, inline: true },
       { name: 'Touches', value: String(signal.touches), inline: true },
       { name: 'Status', value: signal.swept ? '**Swept**' : 'Formed', inline: true },
+      { name: 'Formed At (ET)', value: signal.formationTime ? formatEtTime(signal.formationTime) : 'N/A', inline: true },
       { name: 'Close', value: `\`$${signal.price.toFixed(2)}\``, inline: true },
       { name: 'Timeframe', value: `\`${timeframe}\``, inline: true },
     );

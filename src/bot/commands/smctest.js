@@ -3,6 +3,7 @@ import { config } from '../../config.js';
 import { scanTickerHistory } from '../../services/smcScanner.js';
 import { formatYahooError } from '../../services/yahooMarket.js';
 import { buildSmcAlertEmbed } from '../../utils/embeds.js';
+import { rankStructureSignals } from '../../utils/smcStructure.js';
 
 const TICKER_CHOICES = [
   { name: 'SPY', value: 'SPY' },
@@ -16,6 +17,12 @@ const TIMEFRAME_CHOICES = [
   { name: '1 hour', value: '1h' },
   { name: '4 hours', value: '4h' },
 ];
+
+function pickDisplaySignals(signals) {
+  const eql = rankStructureSignals(signals.filter((s) => s.structure === 'EQL'), 'EQL');
+  const eqh = rankStructureSignals(signals.filter((s) => s.structure === 'EQH'), 'EQH');
+  return [...eql.slice(0, 4), ...eqh.slice(0, 4)];
+}
 
 export const data = new SlashCommandBuilder()
   .setName('smctest')
@@ -57,12 +64,13 @@ export async function execute(interaction) {
 
     try {
       const result = await scanTickerHistory(ticker, { timeframe, structuresOnly: true });
+      const displaySignals = pickDisplaySignals(result.signals);
 
       summary.push(
-        `**${result.label}** \`${timeframe}\` (${result.tradingDate}): ${result.signals.length} setup(s), ${result.sessionBars} session bars`,
+        `**${result.label}** \`${timeframe}\` (${result.tradingDate}): ${result.signals.length} level(s), showing ${displaySignals.length} key setup(s), ${result.sessionBars} session bars`,
       );
 
-      for (const signal of result.signals.slice(-5)) {
+      for (const signal of displaySignals) {
         embeds.push(buildSmcAlertEmbed({
           ticker: result.label,
           signal,
@@ -78,11 +86,11 @@ export async function execute(interaction) {
     .setTitle(`EQH/EQL History Test — ${timeframe}`)
     .setColor(0x5865f2)
     .setDescription([
-      'Replayed EQH/EQL on the previous regular session (9:30 AM – 4:00 PM ET).',
+      'Previous regular session (9:30 AM – 4:00 PM ET). Shows lowest EQL / highest EQH first, including session-low clusters.',
       '',
       ...summary,
       '',
-      `EQH/EQL tolerance: **$${config.monitors.eqhEqlTolerance.toFixed(2)}**`,
+      `Pivot tolerance: **$${config.monitors.eqhEqlTolerance.toFixed(2)}** | Session extreme band: **$${config.monitors.eqhEqlSessionBand.toFixed(2)}**`,
     ].join('\n'))
     .setTimestamp();
 
@@ -92,7 +100,7 @@ export async function execute(interaction) {
   };
 
   if (embeds.length > 9) {
-    payload.content = `Showing last 9 of ${embeds.length} setup embeds. Narrow to one ticker for the full list.`;
+    payload.content = `Showing top ${Math.min(9, embeds.length)} setup(s). Narrow to one ticker for more detail.`;
   }
 
   await interaction.editReply(payload);

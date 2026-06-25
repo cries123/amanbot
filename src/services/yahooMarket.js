@@ -8,9 +8,9 @@ export const SMC_TICKERS = [
 ];
 
 export const SMC_TIMEFRAMES = {
-  '5m': { interval: '5m', barMinutes: 5, contextBars: 4, swingLookback: 2, structuresOnly: false },
-  '1h': { interval: '1h', barMinutes: 60, contextBars: 3, swingLookback: 1, structuresOnly: true },
-  '4h': { interval: '4h', barMinutes: 240, contextBars: 2, swingLookback: 1, structuresOnly: true },
+  '5m': { interval: '5m', barMinutes: 5, contextBars: 4, swingLookback: 2, minBarSeparation: 3, structuresOnly: false },
+  '1h': { interval: '1h', barMinutes: 60, contextBars: 3, swingLookback: 1, minBarSeparation: 1, structuresOnly: true },
+  '4h': { interval: '4h', barMinutes: 240, contextBars: 2, swingLookback: 1, minBarSeparation: 1, structuresOnly: true },
 };
 
 export const SMC_TIMEFRAME_LIST = Object.keys(SMC_TIMEFRAMES);

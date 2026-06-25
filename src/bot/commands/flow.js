@@ -2,6 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { config } from '../../config.js';
 import { scanTickerLive } from '../../services/smcScanner.js';
 import { buildSmcAlertEmbed } from '../../utils/embeds.js';
+import { rankStructureSignals } from '../../utils/smcStructure.js';
 
 const TICKER_CHOICES = [
   { name: 'SPY', value: 'SPY' },
@@ -41,7 +42,12 @@ export async function execute(interaction) {
     const result = await scanTickerLive(ticker, { timeframe, structuresOnly: true });
     const { label, candles, signals } = result;
 
-    if (signals.length === 0) {
+    const displaySignals = [
+      ...rankStructureSignals(signals.filter((s) => s.structure === 'EQL'), 'EQL'),
+      ...rankStructureSignals(signals.filter((s) => s.structure === 'EQH'), 'EQH'),
+    ];
+
+    if (displaySignals.length === 0) {
       const embed = new EmbedBuilder()
         .setTitle(`EQH/EQL Scan — ${label} (${timeframe})`)
         .setColor(0x95a5a6)
@@ -57,14 +63,14 @@ export async function execute(interaction) {
       return;
     }
 
-    const embeds = signals.map((signal) => buildSmcAlertEmbed({
+    const embeds = displaySignals.map((signal) => buildSmcAlertEmbed({
       ticker: label,
       signal,
       timeframe,
     }));
 
     await interaction.editReply({
-      content: `**${label}** \`${timeframe}\` — ${signals.length} EQH/EQL setup(s) on the latest closed bar`,
+      content: `**${label}** \`${timeframe}\` — ${displaySignals.length} EQH/EQL level(s) from the previous session`,
       embeds,
     });
   } catch (err) {
