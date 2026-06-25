@@ -37,9 +37,11 @@ function isToday(dateStr) {
   return dateStr === today;
 }
 
-export function scan0DteFlow(snapshots, thresholds) {
+export function scan0DteFlow(snapshots, thresholds, { testMode = false } = {}) {
   const signals = [];
-  const { minPremium, minVoiRatio } = thresholds;
+  const minPremium = testMode ? 0 : thresholds.minPremium;
+  const minVoiRatio = testMode ? 0 : thresholds.minVoiRatio;
+  const minVolume = testMode ? 1 : 10;
   const seen = new Set();
 
   for (const item of snapshots) {
@@ -55,7 +57,7 @@ export function scan0DteFlow(snapshots, thresholds) {
     const price = day.close ?? item.last_trade?.price ?? 0;
     const premium = volume * price * 100;
 
-    if (volume < 10 || premium < minPremium) continue;
+    if (volume < minVolume || premium < minPremium) continue;
 
     const voiRatio = openInterest > 0 ? volume / openInterest : volume;
     if (voiRatio < minVoiRatio) continue;
@@ -81,6 +83,26 @@ export function scan0DteFlow(snapshots, thresholds) {
   }
 
   return signals.sort((a, b) => b.premium - a.premium);
+}
+
+export function get0DteDiagnostics(snapshots) {
+  const today = new Date().toISOString().slice(0, 10);
+  const zeroDte = snapshots.filter((item) => {
+    const details = item.details ?? item;
+    return details.expiration_date === today;
+  });
+
+  const withVolume = zeroDte.filter((item) => {
+    const day = item.day ?? {};
+    return (day.volume ?? item.volume ?? 0) > 0;
+  });
+
+  return {
+    totalContracts: snapshots.length,
+    zeroDteCount: zeroDte.length,
+    zeroDteWithVolume: withVolume.length,
+    date: today,
+  };
 }
 
 export async function estimateIvPercentile(ticker) {
