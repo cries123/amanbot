@@ -4,7 +4,7 @@ import {
   normalizeCandles,
   findSwingHighs,
   findSwingLows,
-  clusterSwingsByPercent,
+  clusterSwingsByDollars,
   scanEqhEqlHistory,
 } from '../utils/smcStructure.js';
 import { getStockCandles, getCandleSourceLabel } from './candles.js';
@@ -229,7 +229,7 @@ const FLOW_RESOLUTION_MAP = {
 export async function scanTickerSmcFlow(ticker, options = {}) {
   const symbol = normalizeTicker(ticker);
   const resolution = FLOW_RESOLUTION_MAP[options.timeframe] ?? '5';
-  const tolerancePct = options.tolerancePct ?? options.tolerance ?? 0.05;
+  const toleranceDollars = options.toleranceDollars ?? options.tolerance ?? 0.05;
   const sweepsOnly = options.sweepsOnly ?? false;
 
   const raw = await getIntradayCandles(symbol, resolution, 150);
@@ -237,16 +237,15 @@ export async function scanTickerSmcFlow(ticker, options = {}) {
 
   const swingHighs = findSwingHighs(candles);
   const swingLows = findSwingLows(candles);
-  const eqhClusters = clusterSwingsByPercent(swingHighs, tolerancePct);
-  const eqlClusters = clusterSwingsByPercent(swingLows, tolerancePct);
+  const eqhClusters = clusterSwingsByDollars(swingHighs, toleranceDollars);
+  const eqlClusters = clusterSwingsByDollars(swingLows, toleranceDollars);
 
-  let signals = scanEqhEqlHistory(candles, { tolerancePct }).map((s) => ({
+  let signals = scanEqhEqlHistory(candles, { toleranceDollars }).map((s) => ({
     ...s,
     underlying: symbol,
     timeframe: options.timeframe ?? '5m',
     dataSource: getCandleSourceLabel(raw),
-    spread: s.spreadPct,
-    tolerance: tolerancePct,
+    tolerance: toleranceDollars,
   }));
 
   if (sweepsOnly) {

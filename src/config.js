@@ -55,7 +55,7 @@ export const config = {
       .filter(Boolean),
     ivLowThreshold: parseNumber('IV_LOW_THRESHOLD', 10),
     ivHighThreshold: parseNumber('IV_HIGH_THRESHOLD', 90),
-    eqhEqlTolerancePct: parseNumber('EQH_EQL_TOLERANCE_PCT', parseNumber('EQH_EQL_TOLERANCE', 0.05)),
+    eqhEqlTolerance: parseNumber('EQH_EQL_TOLERANCE', 0.05),
     fvgMinGapPct: parseNumber('FVG_MIN_GAP_PCT', 0.02),
     smcTickers: ['SPY', 'SPX', 'QQQ'],
     smcTimeframes: optionalEnv('SMC_TIMEFRAMES', '5m,1h,4h')

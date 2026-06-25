@@ -45,10 +45,10 @@ export async function execute(interaction) {
       const embed = new EmbedBuilder()
         .setTitle(`EQH/EQL Scan — ${label} (${timeframe})`)
         .setColor(0x95a5a6)
-        .setDescription(`No new EQH or EQL setups on the latest closed ${timeframe} candle.`)
+        .setDescription(`No EQH or EQL levels within $${config.monitors.eqhEqlTolerance.toFixed(2)} on the previous session (${timeframe}).`)
         .addFields(
           { name: 'Bars loaded', value: String(candles.length), inline: true },
-          { name: 'EQH/EQL tolerance', value: `${config.monitors.eqhEqlTolerancePct}%`, inline: true },
+          { name: 'EQH/EQL tolerance', value: `$${config.monitors.eqhEqlTolerance.toFixed(2)}`, inline: true },
           { name: 'Data source', value: `Yahoo Finance (${timeframe})`, inline: false },
         )
         .setTimestamp();

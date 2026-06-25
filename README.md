@@ -90,10 +90,7 @@ Renders a candlestick chart from Finnhub market data. Timeframes: `1m`, `5m`, `1
 
 ### `/flow [ticker] [timeframe]`
 
-Live SMC scan on the latest **closed** candle.
-
-- **5m** — FVG + EQH/EQL
-- **1h** / **4h** — EQH/EQL only (higher-timeframe structure)
+Live **EQH/EQL** scan on the latest closed candle. Timeframes: `5m`, `1h`, `4h`.
 
 ### `/smctest [ticker] [timeframe]` (Admin only)
 
@@ -125,7 +122,7 @@ Create dedicated Discord channels and set their IDs in `.env`:
 ### Yahoo Finance (SMC scanner — no API key)
 - **5m OHLCV**: Yahoo Finance chart API for SPY, ^GSPC (SPX), QQQ (with retry + rate-limit handling)
 - **FVG**: Bullish when candle 3 low > candle 1 high; bearish when candle 3 high < candle 1 low
-- **EQH/EQL**: Swing pivots within `EQH_EQL_TOLERANCE_PCT` (default 0.05%)
+- **EQH/EQL**: Swing pivots within `$0.05` (`EQH_EQL_TOLERANCE`) on the previous regular session
 - Runs every 5 minutes during regular market hours via `SMC_SCAN_CRON`
 
 ### Finnhub (charts, IV, calendar, news)
@@ -187,7 +184,7 @@ src/
 | `IV_HIGH_THRESHOLD` | 90 | IV percentile high alert |
 | `IV_WATCHLIST` | SPY,QQQ,... | Tickers to scan |
 | `FVG_MIN_GAP_PCT` | 0.02 | Minimum FVG gap size (%) |
-| `EQH_EQL_TOLERANCE_PCT` | 0.05 | Max pivot spread for EQH/EQL (%) |
+| `EQH_EQL_TOLERANCE` | 0.05 | Max pivot spread for EQH/EQL ($) |
 | `SMC_TIMEFRAMES` | 5m,1h,4h | Timeframes to scan (1h/4h = EQH/EQL only) |
 | `SMC_SCAN_CRON` | `1,6,11,... 9-16` | Scan schedule (5m every 5 min, 1h hourly, 4h twice daily) |
 

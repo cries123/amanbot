@@ -5,7 +5,7 @@ import { scanTickerLive } from '../services/smcScanner.js';
 const ticker = process.argv[2] ?? 'SPY';
 
 console.log(`\n🔍 Testing live SMC scan for ${ticker}...\n`);
-console.log(`   EQH/EQL tolerance: ${config.monitors.eqhEqlTolerancePct}%`);
+console.log(`   EQH/EQL tolerance: $${config.monitors.eqhEqlTolerance}`);
 console.log(`   FVG min gap:       ${config.monitors.fvgMinGapPct}%\n`);
 
 try {

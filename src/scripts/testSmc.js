@@ -6,7 +6,7 @@ const ticker = process.argv[2] ?? 'SPY';
 
 console.log(`\n🔍 SMC history test for ${ticker} (last regular session)...\n`);
 console.log(`   FVG min gap:        ${config.monitors.fvgMinGapPct}%`);
-console.log(`   EQH/EQL tolerance:  ${config.monitors.eqhEqlTolerancePct}%\n`);
+console.log(`   EQH/EQL tolerance:  $${config.monitors.eqhEqlTolerance}\n`);
 
 try {
   const result = await scanTickerHistory(ticker);

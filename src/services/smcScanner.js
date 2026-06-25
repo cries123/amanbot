@@ -12,28 +12,45 @@ import {
   scanAllSmc,
 } from '../utils/smcStructure.js';
 
-function scannerOptions(overrides = {}) {
+function scannerOptions(overrides = {}, timeframe = '5m') {
+  const tf = SMC_TIMEFRAMES[timeframe] ?? SMC_TIMEFRAMES['5m'];
   return {
     minGapPct: overrides.minGapPct ?? config.monitors.fvgMinGapPct,
-    tolerancePct: overrides.tolerancePct ?? config.monitors.eqhEqlTolerancePct,
-    structuresOnly: overrides.structuresOnly ?? false,
+    toleranceDollars: overrides.toleranceDollars ?? config.monitors.eqhEqlTolerance,
+    lookback: overrides.lookback ?? tf.swingLookback,
+    structuresOnly: overrides.structuresOnly ?? tf.structuresOnly,
+    sessionStart: overrides.sessionStart,
+    sessionEnd: overrides.sessionEnd,
   };
-}
-
-function timeframeConfig(timeframe) {
-  return SMC_TIMEFRAMES[timeframe] ?? SMC_TIMEFRAMES['5m'];
 }
 
 export async function scanTickerLive(ticker, overrides = {}) {
   const timeframe = overrides.timeframe ?? '5m';
-  const tf = timeframeConfig(timeframe);
-  const { label, symbol, candles: rawCandles } = await fetchLiveCandles(ticker, timeframe);
+  const tf = SMC_TIMEFRAMES[timeframe] ?? SMC_TIMEFRAMES['5m'];
+  const {
+    label,
+    symbol,
+    candles: rawCandles,
+    tradingDate,
+    sessionStart,
+    sessionEnd,
+    sessionBars,
+  } = await fetchLiveCandles(ticker, timeframe);
+
   const candles = dropFormingCandle(rawCandles, tf.barMinutes);
+  const endIndex = candles.length - 1;
   const options = scannerOptions({
     ...overrides,
-    structuresOnly: overrides.structuresOnly ?? tf.structuresOnly,
-  });
-  const signals = scanLatestBar(candles, options);
+    sessionStart,
+    sessionEnd: Math.min(sessionEnd, endIndex),
+  }, timeframe);
+
+  let signals;
+  if (options.structuresOnly && timeframe !== '5m') {
+    signals = scanAllSmc(candles, { ...options, sessionEnd: Math.min(sessionEnd, endIndex) });
+  } else {
+    signals = scanLatestBar(candles, options);
+  }
 
   return {
     label,
@@ -41,6 +58,8 @@ export async function scanTickerLive(ticker, overrides = {}) {
     candles,
     signals,
     timeframe,
+    tradingDate,
+    sessionBars,
     options,
     mode: 'live',
   };
@@ -48,9 +67,22 @@ export async function scanTickerLive(ticker, overrides = {}) {
 
 export async function scanTickerHistory(ticker, overrides = {}) {
   const timeframe = overrides.timeframe ?? '5m';
-  const tf = timeframeConfig(timeframe);
-  const { label, symbol, candles, tradingDate } = await fetchLastSessionCandles(ticker, timeframe);
-  const options = scannerOptions({ ...overrides, structuresOnly: tf.structuresOnly });
+  const {
+    label,
+    symbol,
+    candles,
+    tradingDate,
+    sessionStart,
+    sessionEnd,
+    sessionBars,
+  } = await fetchLastSessionCandles(ticker, timeframe);
+
+  const options = scannerOptions({
+    ...overrides,
+    sessionStart,
+    sessionEnd,
+  }, timeframe);
+
   const signals = scanAllSmc(candles, options);
 
   return {
@@ -60,6 +92,7 @@ export async function scanTickerHistory(ticker, overrides = {}) {
     signals,
     tradingDate,
     timeframe,
+    sessionBars,
     options,
     mode: 'history',
   };
@@ -93,7 +126,7 @@ export async function scanAllTickersLive(timeframes = null) {
   for (const timeframe of frames) {
     for (const { label } of SMC_TICKERS) {
       try {
-        results.push(await scanTickerLive(label, { timeframe }));
+        results.push(await scanTickerLive(label, { timeframe, structuresOnly: timeframe !== '5m' }));
       } catch (err) {
         console.error(`[smc:${label}:${timeframe}]`, formatYahooError(err));
       }

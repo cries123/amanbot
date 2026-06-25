@@ -59,7 +59,7 @@ export async function execute(interaction) {
       const result = await scanTickerHistory(ticker, { timeframe, structuresOnly: true });
 
       summary.push(
-        `**${result.label}** \`${timeframe}\` (${result.tradingDate}): ${result.signals.length} setup(s), ${result.candles.length} bars`,
+        `**${result.label}** \`${timeframe}\` (${result.tradingDate}): ${result.signals.length} setup(s), ${result.sessionBars} session bars`,
       );
 
       for (const signal of result.signals.slice(-5)) {
@@ -78,11 +78,11 @@ export async function execute(interaction) {
     .setTitle(`EQH/EQL History Test — ${timeframe}`)
     .setColor(0x5865f2)
     .setDescription([
-      'Replayed EQH/EQL structure detection on Yahoo Finance candles.',
+      'Replayed EQH/EQL on the previous regular session (9:30 AM – 4:00 PM ET).',
       '',
       ...summary,
       '',
-      `EQH/EQL tolerance: **${config.monitors.eqhEqlTolerancePct}%**`,
+      `EQH/EQL tolerance: **$${config.monitors.eqhEqlTolerance.toFixed(2)}**`,
     ].join('\n'))
     .setTimestamp();
 

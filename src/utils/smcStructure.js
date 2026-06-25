@@ -3,7 +3,7 @@
  * Candles format: { o, h, l, c, t, v }[]  (t = unix seconds)
  */
 
-const SWING_LOOKBACK = 2;
+const DEFAULT_SWING_LOOKBACK = 2;
 
 export function normalizeCandles(raw) {
   if (Array.isArray(raw?.t)) {
@@ -46,7 +46,7 @@ function round2(n) {
   return Math.round(n * 100) / 100;
 }
 
-export function findSwingHighs(candles, lookback = SWING_LOOKBACK) {
+export function findSwingHighs(candles, lookback = DEFAULT_SWING_LOOKBACK) {
   const swings = [];
   for (let i = lookback; i < candles.length - lookback; i++) {
     let isSwing = true;
@@ -63,7 +63,7 @@ export function findSwingHighs(candles, lookback = SWING_LOOKBACK) {
   return swings;
 }
 
-export function findSwingLows(candles, lookback = SWING_LOOKBACK) {
+export function findSwingLows(candles, lookback = DEFAULT_SWING_LOOKBACK) {
   const swings = [];
   for (let i = lookback; i < candles.length - lookback; i++) {
     let isSwing = true;
@@ -80,7 +80,7 @@ export function findSwingLows(candles, lookback = SWING_LOOKBACK) {
   return swings;
 }
 
-export function clusterSwingsByPercent(swings, tolerancePct) {
+export function clusterSwingsByDollars(swings, toleranceDollars) {
   const clusters = [];
   const used = new Set();
 
@@ -91,9 +91,10 @@ export function clusterSwingsByPercent(swings, tolerancePct) {
 
     for (let j = i + 1; j < swings.length; j++) {
       if (used.has(j)) continue;
+      if (swings[i].index === swings[j].index) continue;
       const prices = [...cluster.map((p) => p.price), swings[j].price];
-      const spread = percentSpread(Math.min(...prices), Math.max(...prices));
-      if (spread <= tolerancePct) {
+      const spread = Math.max(...prices) - Math.min(...prices);
+      if (spread <= toleranceDollars) {
         cluster.push(swings[j]);
         used.add(j);
       }
@@ -107,15 +108,151 @@ export function clusterSwingsByPercent(swings, tolerancePct) {
         level: round2(level),
         minPrice: round2(minPrice),
         maxPrice: round2(maxPrice),
+        spread: round2(maxPrice - minPrice),
         spreadPct: round2(percentSpread(minPrice, maxPrice)),
         touches: cluster.length,
         points: cluster,
         lastIndex: Math.max(...cluster.map((p) => p.index)),
+        firstIndex: Math.min(...cluster.map((p) => p.index)),
       });
     }
   }
 
   return clusters;
+}
+
+export function clusterSwingsByPercent(swings, tolerancePct) {
+  const clusters = [];
+  const used = new Set();
+
+  for (let i = 0; i < swings.length; i++) {
+    if (used.has(i)) continue;
+    const cluster = [swings[i]];
+    used.add(i);
+
+    for (let j = i + 1; j < swings.length; j++) {
+      if (used.has(j)) continue;
+      const prices = [...cluster.map((p) => p.price), swings[j].price];
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      if (percentSpread(minPrice, maxPrice) <= tolerancePct) {
+        cluster.push(swings[j]);
+        used.add(j);
+      }
+    }
+
+    if (cluster.length >= 2) {
+      const level = cluster.reduce((s, p) => s + p.price, 0) / cluster.length;
+      const minPrice = Math.min(...cluster.map((p) => p.price));
+      const maxPrice = Math.max(...cluster.map((p) => p.price));
+      clusters.push({
+        level: round2(level),
+        minPrice: round2(minPrice),
+        maxPrice: round2(maxPrice),
+        spread: round2(maxPrice - minPrice),
+        spreadPct: round2(percentSpread(minPrice, maxPrice)),
+        touches: cluster.length,
+        points: cluster,
+        lastIndex: Math.max(...cluster.map((p) => p.index)),
+        firstIndex: Math.min(...cluster.map((p) => p.index)),
+      });
+    }
+  }
+
+  return clusters;
+}
+
+function buildStructureSignal(cluster, structure, candles, endIndex, toleranceDollars) {
+  const isEqh = structure === 'EQH';
+  let swept = false;
+  let signalIndex = cluster.lastIndex;
+  let signalTime = candles[cluster.lastIndex].t;
+
+  for (let i = cluster.lastIndex + 1; i <= endIndex; i++) {
+    const bar = candles[i];
+    if (isEqh ? bar.h > cluster.maxPrice : bar.l < cluster.minPrice) {
+      swept = true;
+      signalIndex = i;
+      signalTime = bar.t;
+      break;
+    }
+  }
+
+  const bar = candles[signalIndex];
+
+  return {
+    setupType: swept
+      ? (isEqh ? 'EQH Sweep' : 'EQL Sweep')
+      : (isEqh ? 'Equal Highs (EQH)' : 'Equal Lows (EQL)'),
+    type: swept ? (isEqh ? 'EQH_SWEEP' : 'EQL_SWEEP') : structure,
+    direction: isEqh ? 'bearish' : 'bullish',
+    structure,
+    level: cluster.level,
+    zoneLow: cluster.minPrice,
+    zoneHigh: cluster.maxPrice,
+    spread: cluster.spread,
+    spreadPct: cluster.spreadPct,
+    tolerance: toleranceDollars,
+    touches: cluster.touches,
+    formationIndex: cluster.lastIndex,
+    price: round2(bar.c),
+    swept,
+    barIndex: signalIndex,
+    barTime: signalTime,
+  };
+}
+
+function sessionExtremePoints(candles, sessionStart, sessionEnd, structure) {
+  const points = [];
+  for (let i = sessionStart; i <= sessionEnd; i++) {
+    points.push({
+      price: structure === 'EQH' ? candles[i].h : candles[i].l,
+      index: i,
+      time: candles[i].t,
+    });
+  }
+  return points;
+}
+
+export function scanSessionEqhEql(candles, {
+  sessionStart = 0,
+  sessionEnd,
+  toleranceDollars = 0.05,
+  lookback = 1,
+  useAllExtremes = true,
+} = {}) {
+  const end = sessionEnd ?? candles.length - 1;
+  if (end < sessionStart || candles.length < 2) return [];
+
+  const swingHighs = findSwingHighs(candles, lookback)
+    .filter((s) => s.index >= sessionStart && s.index <= end);
+  const swingLows = findSwingLows(candles, lookback)
+    .filter((s) => s.index >= sessionStart && s.index <= end);
+
+  const highPoints = useAllExtremes
+    ? sessionExtremePoints(candles, sessionStart, end, 'EQH')
+    : swingHighs;
+  const lowPoints = useAllExtremes
+    ? sessionExtremePoints(candles, sessionStart, end, 'EQL')
+    : swingLows;
+
+  const eqhClusters = clusterSwingsByDollars(highPoints, toleranceDollars)
+    .filter((cluster) => {
+      const indices = new Set(cluster.points.map((p) => p.index));
+      return indices.size >= 2;
+    });
+  const eqlClusters = clusterSwingsByDollars(lowPoints, toleranceDollars)
+    .filter((cluster) => {
+      const indices = new Set(cluster.points.map((p) => p.index));
+      return indices.size >= 2;
+    });
+
+  const signals = [
+    ...eqhClusters.map((cluster) => buildStructureSignal(cluster, 'EQH', candles, end, toleranceDollars)),
+    ...eqlClusters.map((cluster) => buildStructureSignal(cluster, 'EQL', candles, end, toleranceDollars)),
+  ];
+
+  return dedupeStructureSignals(signals);
 }
 
 export function detectFvgAt(candles, index, minGapPct) {
@@ -124,7 +261,6 @@ export function detectFvgAt(candles, index, minGapPct) {
   const c1 = candles[index - 2];
   const c3 = candles[index];
 
-  // Bullish FVG: candle 3 low > candle 1 high
   if (c3.l > c1.h) {
     const zoneLow = c1.h;
     const zoneHigh = c3.l;
@@ -144,7 +280,6 @@ export function detectFvgAt(candles, index, minGapPct) {
     }
   }
 
-  // Bearish FVG: candle 3 high < candle 1 low
   if (c3.h < c1.l) {
     const zoneLow = c3.h;
     const zoneHigh = c1.l;
@@ -179,14 +314,14 @@ export function scanFvgs(candles, minGapPct, { endIndex } = {}) {
   return signals;
 }
 
-export function scanEqhEqlAt(candles, index, { tolerancePct = 0.05, lookback = SWING_LOOKBACK } = {}) {
+export function scanEqhEqlAt(candles, index, { toleranceDollars = 0.05, lookback = DEFAULT_SWING_LOOKBACK } = {}) {
   const slice = candles.slice(0, index + 1);
-  if (slice.length < lookback * 2 + 3) return [];
+  if (slice.length < lookback * 2 + 1) return [];
 
   const swingHighs = findSwingHighs(slice, lookback);
   const swingLows = findSwingLows(slice, lookback);
-  const eqhClusters = clusterSwingsByPercent(swingHighs, tolerancePct);
-  const eqlClusters = clusterSwingsByPercent(swingLows, tolerancePct);
+  const eqhClusters = clusterSwingsByDollars(swingHighs, toleranceDollars);
+  const eqlClusters = clusterSwingsByDollars(swingLows, toleranceDollars);
 
   const bar = candles[index];
   const signals = [];
@@ -201,7 +336,9 @@ export function scanEqhEqlAt(candles, index, { tolerancePct = 0.05, lookback = S
       level: cluster.level,
       zoneLow: cluster.minPrice,
       zoneHigh: cluster.maxPrice,
+      spread: cluster.spread,
       spreadPct: cluster.spreadPct,
+      tolerance: toleranceDollars,
       touches: cluster.touches,
       formationIndex: cluster.lastIndex,
       price: round2(bar.c),
@@ -221,7 +358,9 @@ export function scanEqhEqlAt(candles, index, { tolerancePct = 0.05, lookback = S
       level: cluster.level,
       zoneLow: cluster.minPrice,
       zoneHigh: cluster.maxPrice,
+      spread: cluster.spread,
       spreadPct: cluster.spreadPct,
+      tolerance: toleranceDollars,
       touches: cluster.touches,
       formationIndex: cluster.lastIndex,
       price: round2(bar.c),
@@ -234,10 +373,10 @@ export function scanEqhEqlAt(candles, index, { tolerancePct = 0.05, lookback = S
   return signals;
 }
 
-export function scanEqhEqlHistory(candles, { tolerancePct = 0.05, lookback = SWING_LOOKBACK } = {}) {
+export function scanEqhEqlHistory(candles, { toleranceDollars = 0.05, lookback = DEFAULT_SWING_LOOKBACK } = {}) {
   const signals = [];
-  for (let i = lookback * 2 + 1; i < candles.length; i++) {
-    const barSignals = scanEqhEqlAt(candles, i, { tolerancePct, lookback });
+  for (let i = lookback * 2; i < candles.length; i++) {
+    const barSignals = scanEqhEqlAt(candles, i, { toleranceDollars, lookback });
     for (const sig of barSignals) {
       if (sig.barIndex === i) signals.push(sig);
     }
@@ -245,16 +384,33 @@ export function scanEqhEqlHistory(candles, { tolerancePct = 0.05, lookback = SWI
   return dedupeStructureSignals(signals);
 }
 
-export function scanAllSmc(candles, { minGapPct = 0.02, tolerancePct = 0.05, endIndex, structuresOnly = false } = {}) {
+export function scanAllSmc(candles, {
+  minGapPct = 0.02,
+  toleranceDollars = 0.05,
+  endIndex,
+  structuresOnly = false,
+  lookback = DEFAULT_SWING_LOOKBACK,
+  sessionStart,
+  sessionEnd,
+} = {}) {
   const last = endIndex ?? candles.length - 1;
 
+  if (sessionStart != null) {
+    return scanSessionEqhEql(candles, {
+      sessionStart,
+      sessionEnd: last,
+      toleranceDollars,
+      lookback,
+    });
+  }
+
   if (structuresOnly) {
-    return scanEqhEqlHistory(candles.slice(0, last + 1), { tolerancePct })
+    return scanEqhEqlHistory(candles.slice(0, last + 1), { toleranceDollars, lookback })
       .filter((s) => s.barIndex <= last);
   }
 
   const fvgs = scanFvgs(candles, minGapPct, { endIndex: last });
-  const structures = scanEqhEqlHistory(candles.slice(0, last + 1), { tolerancePct });
+  const structures = scanEqhEqlHistory(candles.slice(0, last + 1), { toleranceDollars, lookback });
   return dedupeStructureSignals([...fvgs, ...structures.filter((s) => s.barIndex <= last)]);
 }
 
@@ -264,8 +420,17 @@ export function scanLatestBar(candles, options) {
   const lastIndex = candles.length - 1;
   const minGapPct = options.minGapPct ?? 0.02;
   const structuresOnly = options.structuresOnly ?? false;
-  const structures = scanEqhEqlAt(candles, lastIndex, options);
 
+  if (options.sessionStart != null) {
+    return scanSessionEqhEql(candles, {
+      sessionStart: options.sessionStart,
+      sessionEnd: lastIndex,
+      toleranceDollars: options.toleranceDollars ?? 0.05,
+      lookback: options.lookback ?? 1,
+    }).filter((sig) => sig.swept || sig.formationIndex === lastIndex);
+  }
+
+  const structures = scanEqhEqlAt(candles, lastIndex, options);
   const signals = [];
 
   if (!structuresOnly) {
@@ -287,7 +452,7 @@ export function scanLatestBar(candles, options) {
 function dedupeStructureSignals(signals) {
   const seen = new Set();
   return signals.filter((s) => {
-    const key = `${s.type}-${s.barTime}-${s.zoneLow}-${s.zoneHigh}-${s.level}`;
+    const key = `${s.type}-${s.zoneLow}-${s.zoneHigh}-${s.level}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -295,15 +460,15 @@ function dedupeStructureSignals(signals) {
 }
 
 /** Backward-compatible wrapper for older finnhub.js imports */
-export function scanEqhEql(candles, { tolerance = 0.05, tolerancePct = tolerance } = {}) {
+export function scanEqhEql(candles, { tolerance = 0.05, toleranceDollars = tolerance } = {}) {
   const normalized = normalizeCandles(candles);
   const swingHighs = findSwingHighs(normalized);
   const swingLows = findSwingLows(normalized);
-  const eqhClusters = clusterSwingsByPercent(swingHighs, tolerancePct);
-  const eqlClusters = clusterSwingsByPercent(swingLows, tolerancePct);
+  const eqhClusters = clusterSwingsByDollars(swingHighs, toleranceDollars);
+  const eqlClusters = clusterSwingsByDollars(swingLows, toleranceDollars);
 
   return {
-    signals: scanEqhEqlHistory(normalized, { tolerancePct }),
+    signals: scanEqhEqlHistory(normalized, { toleranceDollars }),
     diagnostics: {
       bars: normalized.length,
       swingHighs: swingHighs.length,

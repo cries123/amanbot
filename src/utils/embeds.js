@@ -40,7 +40,7 @@ export function buildSmcAlertEmbed({ ticker, signal, timeframe = '5m' }) {
     embed.addFields(
       { name: 'Structure Level', value: `\`$${signal.level.toFixed(2)}\``, inline: true },
       { name: 'Pivot Zone', value: `\`$${signal.zoneLow.toFixed(2)} – $${signal.zoneHigh.toFixed(2)}\``, inline: true },
-      { name: 'Spread', value: `\`${signal.spreadPct.toFixed(3)}%\``, inline: true },
+      { name: 'Spread', value: `\`$${signal.spread.toFixed(2)}\` (≤ $${signal.tolerance.toFixed(2)})`, inline: true },
       { name: 'Touches', value: String(signal.touches), inline: true },
       { name: 'Status', value: signal.swept ? '**Swept**' : 'Formed', inline: true },
       { name: 'Close', value: `\`$${signal.price.toFixed(2)}\``, inline: true },
