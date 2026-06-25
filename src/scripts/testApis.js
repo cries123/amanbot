@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import axios from 'axios';
 import { fetchChartImage, scanTickerSmcFlow } from '../services/finnhub.js';
+import { fetchTickerNews } from '../services/news.js';
 
 const results = [];
 

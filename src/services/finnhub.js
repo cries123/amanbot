@@ -101,8 +101,8 @@ export async function getSpyDailyChange() {
     return null;
   }
 
-  const last = data.c.length - 1;
-  const change = data.c[last] - data.o[last];
+  const last = c.length - 1;
+  const change = c[last] - o[last];
   return change >= 0 ? 'bullish' : 'bearish';
 }
 

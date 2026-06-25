@@ -1,4 +1,5 @@
 import { EmbedBuilder } from 'discord.js';
+import { formatRelativeTime } from './time.js';
 
 const SMC_COLORS = {
   EQH: 0xe74c3c,
