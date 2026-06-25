@@ -1,5 +1,5 @@
 import { EmbedBuilder } from 'discord.js';
-import { formatEtTime } from './time.js';
+import { formatEstTime } from './time.js';
 
 const SMC_COLORS = {
   EQH: 0xe74c3c,

@@ -1,4 +1,4 @@
-export function formatEtTime(unixSeconds) {
+export function formatEstTime(unixSeconds) {
   return new Date(unixSeconds * 1000).toLocaleString('en-US', {
     timeZone: 'America/New_York',
     hour: 'numeric',
@@ -6,6 +6,9 @@ export function formatEtTime(unixSeconds) {
     timeZoneName: 'short',
   });
 }
+
+/** @deprecated use formatEstTime */
+export const formatEtTime = formatEstTime;
 
 export function formatRelativeTime(dateInput) {
   const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
