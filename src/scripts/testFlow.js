@@ -1,48 +1,42 @@
 import 'dotenv/config';
 import { config } from '../config.js';
-import { getOptionsChainSnapshot, scan0DteFlow, get0DteDiagnostics } from '../services/polygon.js';
+import { scanTickerVolumeFlow } from '../services/finnhub.js';
 
 const ticker = process.argv[2] ?? 'SPY';
 
-if (!config.apis.polygon) {
-  console.error('❌ POLYGON_API_KEY missing in .env');
+if (!config.apis.finnhub) {
+  console.error('❌ FINNHUB_API_KEY missing in .env');
   process.exit(1);
 }
 
-console.log(`\n🔍 Testing 0DTE options flow for ${ticker}...\n`);
+console.log(`\n🔍 Testing Finnhub volume flow for ${ticker}...\n`);
 
 try {
-  const snapshots = await getOptionsChainSnapshot(ticker);
-  const diagnostics = get0DteDiagnostics(snapshots);
-
-  console.log(`✅ Polygon connected`);
-  console.log(`   Contracts scanned: ${diagnostics.totalContracts}`);
-  console.log(`   0DTE today:        ${diagnostics.zeroDteCount}`);
-  console.log(`   0DTE with volume:  ${diagnostics.zeroDteWithVolume}`);
-
-  const testSignals = scan0DteFlow(snapshots, {
+  const thresholds = {
     minPremium: config.monitors.optionsMinPremium,
     minVoiRatio: config.monitors.optionsMinVoiRatio,
-  }, { testMode: true });
+  };
 
-  const prodSignals = scan0DteFlow(snapshots, {
-    minPremium: config.monitors.optionsMinPremium,
-    minVoiRatio: config.monitors.optionsMinVoiRatio,
-  });
+  const { signals, diagnostics, symbol } = await scanTickerVolumeFlow(ticker, thresholds, { testMode: true });
+  const prodSignals = (await scanTickerVolumeFlow(ticker, thresholds)).signals;
 
-  console.log(`\n   Test mode signals: ${testSignals.length}`);
+  console.log(`✅ Finnhub connected`);
+  console.log(`   Symbol scanned:    ${symbol}`);
+  console.log(`   Bars scanned:      ${diagnostics.bars}`);
+  console.log(`   Bars with volume:  ${diagnostics.barsWithVolume}`);
+  console.log(`\n   Test mode signals: ${signals.length}`);
   console.log(`   Production signals: ${prodSignals.length}`);
 
-  if (testSignals.length > 0) {
-    const top = testSignals[0];
-    console.log(`\n   Top signal: ${top.contract}`);
-    console.log(`   Premium: $${top.premium.toLocaleString()} | Vol/OI: ${top.voiRatio.toFixed(1)}x`);
-    console.log('\n✅ Options flow is working!\n');
-  } else if (diagnostics.totalContracts > 0) {
-    console.log('\n⚠️  Polygon works but no 0DTE volume right now.');
-    console.log('   Try during market hours (9:30 AM – 4:00 PM ET, Mon–Fri).\n');
+  if (signals.length > 0) {
+    const top = signals[0];
+    console.log(`\n   Top signal: $${top.dollarVolume.toLocaleString()} dollar volume`);
+    console.log(`   Vol ratio: ${top.volRatio.toFixed(1)}x | ${top.direction}`);
+    console.log('\n✅ Volume flow is working!\n');
+  } else if (diagnostics.bars > 0) {
+    console.log('\n⚠️  Finnhub works but no unusual volume right now.');
+    console.log('   Try during market hours (9:30 AM – 4 PM ET, Mon–Fri).\n');
   } else {
-    console.log('\n❌ No options data returned — check your Polygon plan includes options.\n');
+    console.log('\n❌ No candle data returned.\n');
     process.exit(1);
   }
 } catch (err) {

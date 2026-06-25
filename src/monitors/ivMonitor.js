@@ -1,14 +1,14 @@
 import cron from 'node-cron';
 import { config } from '../config.js';
-import { estimateIvPercentile } from '../services/polygon.js';
+import { estimateIvPercentile } from '../services/finnhub.js';
 import { buildIvAlertEmbed } from '../utils/embeds.js';
 import { query, getPool } from '../database/db.js';
 
 const dailyAlerted = new Set();
 
 export function startIvMonitor(client, sendToChannel) {
-  if (!config.apis.polygon || !config.channels.ivAlerts) {
-    console.warn('[iv-monitor] Skipped — POLYGON_API_KEY or CHANNEL_IV_ALERTS not set');
+  if (!config.apis.finnhub || !config.channels.ivAlerts) {
+    console.warn('[iv-monitor] Skipped — FINNHUB_API_KEY or CHANNEL_IV_ALERTS not set');
     return;
   }
 

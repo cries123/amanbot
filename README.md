@@ -1,16 +1,17 @@
 # AmanBot — Discord Trading Bot
 
-A modular Discord trading bot for your community, built around **Finnhub**, **Chart-img**, and **Polygon.io**.
+A modular Discord trading bot for your community, powered primarily by **Finnhub**.
 
 ## Features
 
 | Module | Description | APIs |
 |--------|-------------|------|
 | SMC Structure Alerts | TradingView webhook → Discord embeds for EQH/EQL sweeps and FVG creation/fills | TradingView (your alerts) |
-| `/chart` | On-demand TradingView chart snapshots | Chart-img |
-| 0DTE Options Flow | Live monitor for high-premium blocks and unusual vol/OI on SPY/SPX | Polygon |
+| `/chart` | On-demand candlestick charts from Finnhub OHLCV data | Finnhub |
+| Volume Flow | Live monitor for unusual stock volume on SPY/SPX | Finnhub |
+| `/flow` | Manual unusual volume scan | Finnhub |
 | `/breakeven` | Options strategy risk/reward calculator | Internal math |
-| IV Extremes | Alerts when IV percentile drops below 10% or spikes above 90% | Polygon |
+| IV Extremes | Alerts when realized vol percentile hits extremes | Finnhub |
 | Sentiment Polls | Daily pre-market poll with accuracy leaderboard | Postgres + Finnhub |
 | Economic Calendar | Monday overview + 30-min warnings before CPI, FOMC, NFP, etc. | Finnhub |
 | `/stats` | Community sentiment win-rate stats | Postgres |

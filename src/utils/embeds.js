@@ -61,6 +61,25 @@ function normalizeEventType(payload) {
   return raw.replace(/\s+/g, '_');
 }
 
+export function buildVolumeFlowEmbed(signal) {
+  const emoji = signal.direction === 'bullish' ? '🟢' : '🔴';
+  return new EmbedBuilder()
+    .setTitle(`${emoji} Unusual Volume — ${signal.underlying}`)
+    .setColor(signal.direction === 'bullish' ? 0x2ecc71 : 0xe74c3c)
+    .addFields(
+      { name: 'Price', value: `$${signal.price.toFixed(2)}`, inline: true },
+      { name: 'Change', value: `${signal.changePct >= 0 ? '+' : ''}${signal.changePct.toFixed(2)}%`, inline: true },
+      { name: 'Direction', value: signal.direction.toUpperCase(), inline: true },
+      { name: 'Volume', value: signal.volume.toLocaleString(), inline: true },
+      { name: 'Avg Volume', value: signal.avgVolume.toLocaleString(), inline: true },
+      { name: 'Vol Ratio', value: `${signal.volRatio.toFixed(1)}x`, inline: true },
+      { name: 'Dollar Volume', value: `$${Math.round(signal.dollarVolume).toLocaleString()}`, inline: true },
+      { name: 'Bar Time', value: new Date(signal.barTime).toLocaleString('en-US', { timeZone: 'America/New_York' }), inline: true },
+    )
+    .setTimestamp()
+    .setFooter({ text: 'Finnhub Volume Flow' });
+}
+
 export function buildOptionsFlowEmbed(signal) {
   const emoji = signal.optionType === 'call' ? '🟢' : '🔴';
   return new EmbedBuilder()
@@ -97,7 +116,7 @@ export function buildIvAlertEmbed({ ticker, ivPercentile, alertType, currentIv }
       { name: 'Signal', value: isLow ? 'Cheap Premium' : 'Expensive Premium', inline: true },
     )
     .setTimestamp()
-    .setFooter({ text: 'IV Extremes Monitor' });
+    .setFooter({ text: 'Finnhub Volatility Monitor' });
 }
 
 export function buildBreakevenEmbed(result) {

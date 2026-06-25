@@ -120,3 +120,227 @@ export function getUpcomingWeekRange() {
     to: nextFriday.toISOString().slice(0, 10),
   };
 }
+
+// ─── Market data (charts & volume flow) ─────────────────────────────────────
+
+const CHART_RESOLUTION = {
+  '1m': '1',
+  '5m': '5',
+  '15m': '15',
+  '1h': '60',
+  '4h': '60',
+  '1D': 'D',
+  '1d': 'D',
+};
+
+const RESOLUTION_SECONDS = {
+  '1': 60,
+  '5': 300,
+  '15': 900,
+  '60': 3600,
+  D: 86_400,
+};
+
+const FLOW_TICKER_MAP = {
+  SPX: 'SPY',
+};
+
+export function normalizeTicker(ticker) {
+  const upper = ticker.toUpperCase().trim();
+  return FLOW_TICKER_MAP[upper] ?? upper;
+}
+
+export function normalizeChartResolution(timeframe) {
+  return CHART_RESOLUTION[timeframe] ?? timeframe;
+}
+
+function lookbackSeconds(resolution, bars = 120) {
+  const seconds = RESOLUTION_SECONDS[resolution] ?? 86_400;
+  return seconds * bars;
+}
+
+export async function getStockCandles(symbol, resolution, from, to) {
+  const { data } = await finnhubGet('/stock/candle', {
+    symbol: normalizeTicker(symbol),
+    resolution,
+    from,
+    to,
+  });
+
+  if (data.s !== 'ok') {
+    throw new Error(`No candle data for ${symbol} (${resolution})`);
+  }
+
+  return data;
+}
+
+export async function getQuote(symbol) {
+  const { data } = await finnhubGet('/quote', { symbol: normalizeTicker(symbol) });
+  return data;
+}
+
+export async function fetchChartImage(ticker, timeframe) {
+  const symbol = normalizeTicker(ticker);
+  const resolution = normalizeChartResolution(timeframe);
+  const to = Math.floor(Date.now() / 1000);
+  const from = to - lookbackSeconds(resolution);
+
+  const candles = await getStockCandles(symbol, resolution, from, to);
+  const buffer = await renderCandlestickChart(symbol, timeframe, candles);
+
+  return { buffer, symbol, interval: timeframe };
+}
+
+async function renderCandlestickChart(symbol, timeframe, candles) {
+  const length = candles.t.length;
+  const start = Math.max(0, length - 100);
+
+  const points = [];
+  for (let i = start; i < length; i++) {
+    points.push({
+      x: new Date(candles.t[i] * 1000).toISOString(),
+      o: candles.o[i],
+      h: candles.h[i],
+      l: candles.l[i],
+      c: candles.c[i],
+    });
+  }
+
+  const chart = {
+    type: 'candlestick',
+    data: {
+      datasets: [{
+        label: symbol,
+        data: points,
+        color: { up: '#26a69a', down: '#ef5350', unchanged: '#999' },
+      }],
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: `${symbol} — ${timeframe}`, color: '#ffffff' },
+      },
+      scales: {
+        x: { ticks: { color: '#aaa', maxTicksLimit: 8 }, grid: { color: '#333' } },
+        y: { ticks: { color: '#aaa' }, grid: { color: '#333' } },
+      },
+    },
+  };
+
+  const { data } = await axios.post(
+    'https://quickchart.io/chart',
+    {
+      chart,
+      width: 1200,
+      height: 700,
+      format: 'png',
+      backgroundColor: '#0f0f1a',
+    },
+    { responseType: 'arraybuffer', timeout: 30_000 },
+  );
+
+  return Buffer.from(data);
+}
+
+export async function getIntradayCandles(symbol, resolution = '5') {
+  const to = Math.floor(Date.now() / 1000);
+  const from = to - lookbackSeconds(resolution, 80);
+  return getStockCandles(symbol, resolution, from, to);
+}
+
+export function scanVolumeFlow(candles, thresholds, { testMode = false } = {}) {
+  const { minPremium, minVoiRatio } = thresholds;
+  const minDollarVolume = testMode ? 1_000_000 : minPremium;
+  const minVolRatio = testMode ? 1.5 : minVoiRatio;
+
+  const signals = [];
+  const len = candles.t?.length ?? 0;
+  if (len < 10) return signals;
+
+  const window = 20;
+  for (let i = window; i < len; i++) {
+    const volume = candles.v[i];
+    const price = candles.c[i];
+    const prevClose = candles.c[i - 1] ?? price;
+    const dollarVolume = volume * price;
+
+    const volSlice = candles.v.slice(i - window, i);
+    const avgVolume = volSlice.reduce((a, b) => a + b, 0) / volSlice.length;
+    const volRatio = avgVolume > 0 ? volume / avgVolume : 0;
+
+    if (volume <= 0 || dollarVolume < minDollarVolume || volRatio < minVolRatio) continue;
+
+    const changePct = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
+
+    signals.push({
+      underlying: candles.symbol ?? 'UNKNOWN',
+      barTime: new Date(candles.t[i] * 1000).toISOString(),
+      volume,
+      avgVolume: Math.round(avgVolume),
+      volRatio,
+      dollarVolume,
+      price,
+      changePct,
+      direction: changePct >= 0 ? 'bullish' : 'bearish',
+    });
+  }
+
+  return signals.sort((a, b) => b.dollarVolume - a.dollarVolume);
+}
+
+export function getVolumeFlowDiagnostics(candles) {
+  const len = candles.t?.length ?? 0;
+  const withVolume = candles.v?.filter((v) => v > 0).length ?? 0;
+  return {
+    bars: len,
+    barsWithVolume: withVolume,
+    date: new Date().toISOString().slice(0, 10),
+  };
+}
+
+export async function scanTickerVolumeFlow(ticker, thresholds, { testMode = false } = {}) {
+  const symbol = normalizeTicker(ticker);
+  const candles = await getIntradayCandles(symbol, '5');
+  candles.symbol = symbol;
+  const signals = scanVolumeFlow(candles, thresholds, { testMode });
+  const diagnostics = getVolumeFlowDiagnostics(candles);
+  return { signals, diagnostics, symbol };
+}
+
+export async function estimateIvPercentile(ticker) {
+  const symbol = normalizeTicker(ticker);
+  const to = Math.floor(Date.now() / 1000);
+  const from = to - 365 * 86_400;
+
+  const daily = await getStockCandles(symbol, 'D', from, to);
+  const len = daily.c?.length ?? 0;
+  if (len < 30) return { ivPercentile: null, currentIv: null, ticker: symbol };
+
+  const returns = [];
+  for (let i = 1; i < len; i++) {
+    returns.push(Math.log(daily.c[i] / daily.c[i - 1]));
+  }
+
+  const window = 20;
+  const historicalVols = [];
+  for (let i = window; i < returns.length; i++) {
+    const slice = returns.slice(i - window, i);
+    const mean = slice.reduce((a, b) => a + b, 0) / slice.length;
+    const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / slice.length;
+    historicalVols.push(Math.sqrt(variance * 252));
+  }
+
+  if (historicalVols.length === 0) {
+    return { ivPercentile: null, currentIv: null, ticker: symbol };
+  }
+
+  const recentSlice = returns.slice(-window);
+  const mean = recentSlice.reduce((a, b) => a + b, 0) / recentSlice.length;
+  const variance = recentSlice.reduce((a, b) => a + (b - mean) ** 2, 0) / recentSlice.length;
+  const currentIv = Math.sqrt(variance * 252);
+
+  const below = historicalVols.filter((hv) => hv <= currentIv).length;
+  const ivPercentile = (below / historicalVols.length) * 100;
+
+  return { ivPercentile, currentIv, ticker: symbol };
+}

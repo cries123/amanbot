@@ -1,14 +1,14 @@
 import cron from 'node-cron';
 import { config } from '../config.js';
-import { getOptionsChainSnapshot, scan0DteFlow } from '../services/polygon.js';
-import { buildOptionsFlowEmbed } from '../utils/embeds.js';
+import { scanTickerVolumeFlow } from '../services/finnhub.js';
+import { buildVolumeFlowEmbed } from '../utils/embeds.js';
 
 const recentAlerts = new Map();
 const DEDUP_MS = 5 * 60 * 1000;
 
 export function startOptionsFlowMonitor(client, sendToChannel) {
-  if (!config.apis.polygon || !config.channels.optionsFlow) {
-    console.warn('[options-flow] Skipped — POLYGON_API_KEY or CHANNEL_OPTIONS_FLOW not set');
+  if (!config.apis.finnhub || !config.channels.optionsFlow) {
+    console.warn('[volume-flow] Skipped — FINNHUB_API_KEY or CHANNEL_OPTIONS_FLOW not set');
     return;
   }
 
@@ -19,23 +19,22 @@ export function startOptionsFlowMonitor(client, sendToChannel) {
 
       for (const ticker of config.monitors.optionsTickers) {
         try {
-          const snapshots = await getOptionsChainSnapshot(ticker);
-          const signals = scan0DteFlow(snapshots, {
+          const { signals } = await scanTickerVolumeFlow(ticker, {
             minPremium: config.monitors.optionsMinPremium,
             minVoiRatio: config.monitors.optionsMinVoiRatio,
           });
 
-          for (const signal of signals.slice(0, 5)) {
-            const key = `${signal.contract}-${signal.volume}`;
+          for (const signal of signals.slice(0, 3)) {
+            const key = `${signal.underlying}-${signal.barTime}`;
             const last = recentAlerts.get(key);
             if (last && Date.now() - last < DEDUP_MS) continue;
             recentAlerts.set(key, Date.now());
 
-            const embed = buildOptionsFlowEmbed(signal);
+            const embed = buildVolumeFlowEmbed(signal);
             await sendToChannel(client, config.channels.optionsFlow, { embeds: [embed] });
           }
         } catch (err) {
-          console.error(`[options-flow:${ticker}]`, err.message);
+          console.error(`[volume-flow:${ticker}]`, err.message);
         }
       }
 
@@ -44,7 +43,7 @@ export function startOptionsFlowMonitor(client, sendToChannel) {
     { timezone: config.timezone },
   );
 
-  console.log('[options-flow] Monitor scheduled');
+  console.log('[volume-flow] Monitor scheduled');
 }
 
 function isMarketHours() {

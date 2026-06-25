@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, AttachmentBuilder } from 'discord.js';
-import { fetchChartImage } from '../../services/chartimg.js';
+import { fetchChartImage } from '../../services/finnhub.js';
+import { config } from '../../config.js';
 
 const TIMEFRAMES = [
   { name: '1 minute', value: '1m' },
@@ -12,7 +13,7 @@ const TIMEFRAMES = [
 
 export const data = new SlashCommandBuilder()
   .setName('chart')
-  .setDescription('Render a TradingView chart snapshot')
+  .setDescription('Render a candlestick chart from Finnhub market data')
   .addStringOption((opt) =>
     opt.setName('ticker').setDescription('Stock ticker (e.g. AAPL, SPY)').setRequired(true),
   )
@@ -21,6 +22,11 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
+  if (!config.apis.finnhub) {
+    await interaction.reply({ content: 'FINNHUB_API_KEY is not configured in `.env`.', ephemeral: true });
+    return;
+  }
+
   const ticker = interaction.options.getString('ticker');
   const timeframe = interaction.options.getString('timeframe');
 
@@ -31,7 +37,7 @@ export async function execute(interaction) {
     const attachment = new AttachmentBuilder(buffer, { name: `${ticker}-${timeframe}.png` });
 
     await interaction.editReply({
-      content: `📈 **${symbol}** — \`${interval}\``,
+      content: `📈 **${symbol}** — \`${interval}\` *(Finnhub)*`,
       files: [attachment],
     });
   } catch (err) {
