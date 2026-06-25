@@ -174,50 +174,49 @@ export function buildStatsEmbed(stats) {
 const SOCIAL_PLATFORMS = [
   {
     name: 'Instagram',
+    emoji: '📸',
     handle: '@amantradesss',
     url: 'https://www.instagram.com/amantradesss',
-    color: 0xe4405f,
-    icon: 'https://cdn.simpleicons.org/instagram/white',
     tagline: 'Charts, setups & daily market clips',
+    icon: 'https://cdn.simpleicons.org/instagram/white',
   },
   {
-    name: 'X (Twitter)',
+    name: 'X',
+    emoji: '𝕏',
     handle: '@amantradesss',
     url: 'https://x.com/amantradesss',
-    color: 0x000000,
-    icon: 'https://cdn.simpleicons.org/x/white',
     tagline: 'Real-time thoughts & trade alerts',
+    icon: 'https://cdn.simpleicons.org/x/white',
   },
   {
     name: 'YouTube',
+    emoji: '▶️',
     handle: '@amantradess',
     url: 'https://www.youtube.com/@amantradess',
-    color: 0xff0000,
-    icon: 'https://cdn.simpleicons.org/youtube/white',
     tagline: 'Full breakdowns & educational content',
+    icon: 'https://cdn.simpleicons.org/youtube/white',
   },
 ];
 
 export function buildSocialEmbeds() {
-  const header = new EmbedBuilder()
-    .setTitle('⚡ Aman Trades — Official Socials')
-    .setDescription(
-      '**Follow across all platforms** for charts, flow, and market breakdowns.\n\u200b',
-    )
-    .setColor(0x1a1a2e)
+  const embed = new EmbedBuilder()
+    .setAuthor({
+      name: 'Aman Trades',
+      iconURL: 'https://cdn.simpleicons.org/chartline/FFD700',
+    })
+    .setTitle('Official Socials')
+    .setDescription('Follow for charts, flow, and market breakdowns.')
+    .setColor(0x0f0f1a)
     .setThumbnail('https://cdn.simpleicons.org/chartline/FFD700')
-    .setFooter({ text: 'Tap a platform below to follow' })
+    .addFields(
+      SOCIAL_PLATFORMS.map((platform) => ({
+        name: `${platform.emoji} ${platform.name}`,
+        value: `[${platform.handle}](${platform.url})\n*${platform.tagline}*`,
+        inline: true,
+      })),
+    )
+    .setFooter({ text: 'Aman Trades • Tap a link to follow' })
     .setTimestamp();
 
-  const platformEmbeds = SOCIAL_PLATFORMS.map((platform) =>
-    new EmbedBuilder()
-      .setAuthor({ name: platform.name, iconURL: platform.icon, url: platform.url })
-      .setDescription(
-        `${platform.tagline}\n\n**[${platform.handle}](${platform.url})**\n[Click to follow →](${platform.url})`,
-      )
-      .setColor(platform.color)
-      .setThumbnail(platform.icon),
-  );
-
-  return [header, ...platformEmbeds];
+  return [embed];
 }
