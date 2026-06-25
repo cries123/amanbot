@@ -35,6 +35,7 @@ export const config = {
     finnhub: optionalEnv('FINNHUB_API_KEY'),
   },
   webhook: {
+    enabled: optionalEnv('WEBHOOK_ENABLED', 'true').toLowerCase() !== 'false',
     port: parseNumber('WEBHOOK_PORT', 3000),
     secret: optionalEnv('WEBHOOK_SECRET'),
   },

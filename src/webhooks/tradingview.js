@@ -2,7 +2,12 @@ import express from 'express';
 import { config } from '../config.js';
 import { buildSmcEmbed } from '../utils/embeds.js';
 
-export function createWebhookServer(client, sendToChannel) {
+export async function createWebhookServer(client, sendToChannel) {
+  if (!config.webhook.enabled) {
+    console.log('[webhook] Disabled — set WEBHOOK_ENABLED=true to enable TradingView alerts');
+    return null;
+  }
+
   const app = express();
   app.use(express.json({ limit: '1mb' }));
 
@@ -34,9 +39,27 @@ export function createWebhookServer(client, sendToChannel) {
   });
 
   return new Promise((resolve) => {
-    const server = app.listen(config.webhook.port, () => {
+    const server = app.listen(config.webhook.port);
+
+    server.on('listening', () => {
       console.log(`[webhook] Listening on port ${config.webhook.port}`);
       resolve(server);
+    });
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(
+          `[webhook] Port ${config.webhook.port} is already in use — skipping TradingView webhook.`,
+        );
+        console.warn(
+          '[webhook] Stop the other process, change WEBHOOK_PORT, or set WEBHOOK_ENABLED=false.',
+        );
+        resolve(null);
+        return;
+      }
+
+      console.error('[webhook] Failed to start:', err.message);
+      resolve(null);
     });
   });
 }
