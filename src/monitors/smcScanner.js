@@ -21,9 +21,7 @@ export function startSmcScanner(client, sendToChannel) {
 
       for (const result of results) {
         for (const signal of result.signals) {
-          if (!signal.swept && signal.formationIndex !== result.candles.length - 1) continue;
-
-          const key = `${result.label}-${result.timeframe}-${signal.type}-${signal.zoneLow}-${signal.zoneHigh}`;
+          const key = `${result.label}-${result.timeframe}-${signal.type}-${signal.formationTime}-${signal.zoneLow}`;
           const last = recentAlerts.get(key);
           if (last && Date.now() - last < DEDUP_MS) continue;
           recentAlerts.set(key, Date.now());

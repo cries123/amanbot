@@ -357,21 +357,30 @@ export function scanRecentWickLevels(candles, {
     lowWicks.push({ price: candles[i].l, index: i, time: candles[i].t });
   }
 
-  const byRecency = (a, b) => {
-    const timeA = a.swept ? a.barTime : a.formationTime;
-    const timeB = b.swept ? b.barTime : b.formationTime;
-    return timeB - timeA;
-  };
+  const toLevel = (cluster, structure) => ({
+    setupType: structure === 'EQH' ? 'Equal Highs (EQH)' : 'Equal Lows (EQL)',
+    type: structure,
+    structure,
+    direction: structure === 'EQH' ? 'bearish' : 'bullish',
+    level: cluster.level,
+    zoneLow: cluster.minPrice,
+    zoneHigh: cluster.maxPrice,
+    spread: cluster.spread,
+    tolerance: toleranceDollars,
+    touches: cluster.touches,
+    formationTime: cluster.lastTime,
+    touchTimes: cluster.points.map((p) => p.time),
+  });
 
   const eqh = clusterWickLevels(highWicks, toleranceDollars, minBarSeparation)
-    .map((cluster) => buildStructureSignal(cluster, 'EQH', candles, end, toleranceDollars))
-    .sort(byRecency)
-    .slice(0, limit);
+    .sort((a, b) => b.lastTime - a.lastTime)
+    .slice(0, limit)
+    .map((cluster) => toLevel(cluster, 'EQH'));
 
   const eql = clusterWickLevels(lowWicks, toleranceDollars, minBarSeparation)
-    .map((cluster) => buildStructureSignal(cluster, 'EQL', candles, end, toleranceDollars))
-    .sort(byRecency)
-    .slice(0, limit);
+    .sort((a, b) => b.lastTime - a.lastTime)
+    .slice(0, limit)
+    .map((cluster) => toLevel(cluster, 'EQL'));
 
   return { eqh, eql, signals: [...eqh, ...eql] };
 }
