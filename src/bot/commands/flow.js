@@ -10,14 +10,14 @@ const TICKER_CHOICES = [
 ];
 
 const TIMEFRAME_CHOICES = [
-  { name: '5 minutes (FVG + EQH/EQL)', value: '5m' },
-  { name: '1 hour (EQH/EQL)', value: '1h' },
-  { name: '4 hours (EQH/EQL)', value: '4h' },
+  { name: '5 minutes', value: '5m' },
+  { name: '1 hour', value: '1h' },
+  { name: '4 hours', value: '4h' },
 ];
 
 export const data = new SlashCommandBuilder()
   .setName('flow')
-  .setDescription('Live SMC scan — FVG on 5m, EQH/EQL on 5m/1h/4h')
+  .setDescription('Live EQH/EQL scan on 5m, 1h, or 4h candles')
   .addStringOption((opt) =>
     opt
       .setName('ticker')
@@ -38,22 +38,16 @@ export async function execute(interaction) {
   await interaction.deferReply();
 
   try {
-    const result = await scanTickerLive(ticker, { timeframe });
+    const result = await scanTickerLive(ticker, { timeframe, structuresOnly: true });
     const { label, candles, signals } = result;
-    const isStructureTf = timeframe === '1h' || timeframe === '4h';
 
     if (signals.length === 0) {
       const embed = new EmbedBuilder()
-        .setTitle(`SMC Scan — ${label} (${timeframe})`)
+        .setTitle(`EQH/EQL Scan — ${label} (${timeframe})`)
         .setColor(0x95a5a6)
-        .setDescription(
-          isStructureTf
-            ? `No new EQH or EQL setups on the latest closed ${timeframe} candle.`
-            : `No new FVG, EQH, or EQL setups on the latest closed ${timeframe} candle.`,
-        )
+        .setDescription(`No new EQH or EQL setups on the latest closed ${timeframe} candle.`)
         .addFields(
           { name: 'Bars loaded', value: String(candles.length), inline: true },
-          { name: 'FVG min gap', value: `${config.monitors.fvgMinGapPct}%`, inline: true },
           { name: 'EQH/EQL tolerance', value: `${config.monitors.eqhEqlTolerancePct}%`, inline: true },
           { name: 'Data source', value: `Yahoo Finance (${timeframe})`, inline: false },
         )
@@ -70,11 +64,11 @@ export async function execute(interaction) {
     }));
 
     await interaction.editReply({
-      content: `**${label}** \`${timeframe}\` — ${signals.length} setup(s) on the latest closed bar`,
+      content: `**${label}** \`${timeframe}\` — ${signals.length} EQH/EQL setup(s) on the latest closed bar`,
       embeds,
     });
   } catch (err) {
     console.error('[flow]', err.message);
-    await interaction.editReply({ content: `SMC scan failed: ${err.message}` });
+    await interaction.editReply({ content: `EQH/EQL scan failed: ${err.message}` });
   }
 }

@@ -8,7 +8,7 @@ A modular Discord trading bot for your community, powered primarily by **Finnhub
 |--------|-------------|------|
 | SMC Scanner | Automated FVG + EQH/EQL detection on SPY, SPX, QQQ (5m) | Yahoo Finance |
 | SMC Webhook Alerts | TradingView webhook → Discord embeds (optional) | TradingView |
-| `/flow` | Live SMC scan — FVG on 5m, EQH/EQL on 5m/1h/4h | Yahoo Finance |
+| `/flow` | Live EQH/EQL scan on 5m, 1h, or 4h | Yahoo Finance |
 | `/smctest` | Admin replay of last session's SMC setups | Yahoo Finance |
 | `/chart` | On-demand candlestick charts | Finnhub (+ Yahoo fallback) |
 | `/breakeven` | Options strategy risk/reward calculator | Internal math |

@@ -29,7 +29,10 @@ export async function scanTickerLive(ticker, overrides = {}) {
   const tf = timeframeConfig(timeframe);
   const { label, symbol, candles: rawCandles } = await fetchLiveCandles(ticker, timeframe);
   const candles = dropFormingCandle(rawCandles, tf.barMinutes);
-  const options = scannerOptions({ ...overrides, structuresOnly: tf.structuresOnly });
+  const options = scannerOptions({
+    ...overrides,
+    structuresOnly: overrides.structuresOnly ?? tf.structuresOnly,
+  });
   const signals = scanLatestBar(candles, options);
 
   return {

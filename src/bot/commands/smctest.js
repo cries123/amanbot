@@ -12,14 +12,14 @@ const TICKER_CHOICES = [
 ];
 
 const TIMEFRAME_CHOICES = [
-  { name: '5 minutes (FVG + EQH/EQL)', value: '5m' },
-  { name: '1 hour (EQH/EQL)', value: '1h' },
-  { name: '4 hours (EQH/EQL)', value: '4h' },
+  { name: '5 minutes', value: '5m' },
+  { name: '1 hour', value: '1h' },
+  { name: '4 hours', value: '4h' },
 ];
 
 export const data = new SlashCommandBuilder()
   .setName('smctest')
-  .setDescription('Admin: replay SMC detection on historical candles')
+  .setDescription('Admin: replay EQH/EQL detection on historical candles')
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addStringOption((opt) =>
     opt
@@ -56,17 +56,13 @@ export async function execute(interaction) {
     }
 
     try {
-      const result = await scanTickerHistory(ticker, { timeframe });
-      const structureSignals = result.signals.filter((s) =>
-        ['EQH', 'EQL', 'EQH_SWEEP', 'EQL_SWEEP'].includes(s.type),
-      );
-      const displaySignals = timeframe === '5m' ? result.signals : structureSignals;
+      const result = await scanTickerHistory(ticker, { timeframe, structuresOnly: true });
 
       summary.push(
-        `**${result.label}** \`${timeframe}\` (${result.tradingDate}): ${displaySignals.length} setup(s), ${result.candles.length} bars`,
+        `**${result.label}** \`${timeframe}\` (${result.tradingDate}): ${result.signals.length} setup(s), ${result.candles.length} bars`,
       );
 
-      for (const signal of displaySignals.slice(-5)) {
+      for (const signal of result.signals.slice(-5)) {
         embeds.push(buildSmcAlertEmbed({
           ticker: result.label,
           signal,
@@ -79,16 +75,14 @@ export async function execute(interaction) {
   }
 
   const header = new EmbedBuilder()
-    .setTitle(`SMC History Test — ${timeframe}`)
+    .setTitle(`EQH/EQL History Test — ${timeframe}`)
     .setColor(0x5865f2)
     .setDescription([
-      timeframe === '5m'
-        ? 'Replayed FVG + EQH/EQL on Yahoo Finance candles.'
-        : 'Replayed EQH/EQL structure detection on higher-timeframe candles.',
+      'Replayed EQH/EQL structure detection on Yahoo Finance candles.',
       '',
       ...summary,
       '',
-      `FVG min gap: **${config.monitors.fvgMinGapPct}%** | EQH/EQL tolerance: **${config.monitors.eqhEqlTolerancePct}%**`,
+      `EQH/EQL tolerance: **${config.monitors.eqhEqlTolerancePct}%**`,
     ].join('\n'))
     .setTimestamp();
 
