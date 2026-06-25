@@ -283,3 +283,23 @@ function dedupeStructureSignals(signals) {
     return true;
   });
 }
+
+/** Backward-compatible wrapper for older finnhub.js imports */
+export function scanEqhEql(candles, { tolerance = 0.05, tolerancePct = tolerance } = {}) {
+  const normalized = normalizeCandles(candles);
+  const swingHighs = findSwingHighs(normalized);
+  const swingLows = findSwingLows(normalized);
+  const eqhClusters = clusterSwingsByPercent(swingHighs, tolerancePct);
+  const eqlClusters = clusterSwingsByPercent(swingLows, tolerancePct);
+
+  return {
+    signals: scanEqhEqlHistory(normalized, { tolerancePct }),
+    diagnostics: {
+      bars: normalized.length,
+      swingHighs: swingHighs.length,
+      swingLows: swingLows.length,
+      eqhClusters: eqhClusters.length,
+      eqlClusters: eqlClusters.length,
+    },
+  };
+}
