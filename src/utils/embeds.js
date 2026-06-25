@@ -81,7 +81,7 @@ export function buildSmcStructureEmbed(signal) {
       { name: 'Current Price', value: `\`$${signal.price.toFixed(2)}\``, inline: true },
     )
     .setTimestamp()
-    .setFooter({ text: 'Finnhub SMC Structure Scan' });
+    .setFooter({ text: signal.dataSource ?? 'SMC Structure Scan' });
 }
 
 export function buildVolumeFlowEmbed(signal) {

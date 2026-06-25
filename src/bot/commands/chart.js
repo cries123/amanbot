@@ -33,11 +33,11 @@ export async function execute(interaction) {
   await interaction.deferReply();
 
   try {
-    const { buffer, symbol, interval } = await fetchChartImage(ticker, timeframe);
+    const { buffer, symbol, interval, source } = await fetchChartImage(ticker, timeframe);
     const attachment = new AttachmentBuilder(buffer, { name: `${ticker}-${timeframe}.png` });
 
     await interaction.editReply({
-      content: `📈 **${symbol}** — \`${interval}\` *(Finnhub)*`,
+      content: `📈 **${symbol}** — \`${interval}\`\n*${source === 'yahoo' ? 'Yahoo Finance (Finnhub free plan has no candles)' : 'Finnhub'}*`,
       files: [attachment],
     });
   } catch (err) {

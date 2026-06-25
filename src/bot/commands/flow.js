@@ -43,7 +43,7 @@ export async function execute(interaction) {
   await interaction.deferReply();
 
   try {
-    const { signals, diagnostics, symbol } = await scanTickerSmcFlow(ticker, {
+    const { signals, diagnostics, symbol, dataSource } = await scanTickerSmcFlow(ticker, {
       timeframe,
       tolerance: config.monitors.eqhEqlTolerance,
       sweepsOnly,
@@ -61,16 +61,20 @@ export async function execute(interaction) {
             : 'No EQH/EQL clusters found where swing points are within $0.05.',
         )
         .addFields(
-          { name: 'Finnhub status', value: '✅ Connected', inline: true },
+          { name: 'Status', value: '✅ Connected', inline: true },
           { name: 'Bars scanned', value: String(diagnostics.bars), inline: true },
           { name: 'Swing highs / lows', value: `${diagnostics.swingHighs} / ${diagnostics.swingLows}`, inline: true },
           { name: 'EQH clusters', value: String(diagnostics.eqhClusters), inline: true },
           { name: 'EQL clusters', value: String(diagnostics.eqlClusters), inline: true },
           { name: 'Tolerance', value: `$${config.monitors.eqhEqlTolerance.toFixed(2)}`, inline: true },
-          { name: 'Tip', value: diagnostics.bars < 10
-            ? 'Market may be closed or not enough data. Try during market hours.'
-            : 'EQH/EQL requires at least 2 swing points within $0.05 of each other.',
-            inline: false },
+          { name: 'Data source', value: dataSource ?? 'Unknown', inline: false },
+          {
+            name: 'Tip',
+            value: diagnostics.bars < 10
+              ? 'Market may be closed or not enough data. Try during market hours.'
+              : 'EQH/EQL requires at least 2 swing points within $0.05 of each other.',
+            inline: false,
+          },
         )
         .setTimestamp();
 
@@ -81,13 +85,16 @@ export async function execute(interaction) {
     const embeds = displaySignals.map((signal) => buildSmcStructureEmbed(signal));
 
     await interaction.editReply({
-      content: `✅ **${symbol}** \`${timeframe}\` — found ${displaySignals.length} EQH/EQL level(s) within **$${config.monitors.eqhEqlTolerance.toFixed(2)}**:`,
+      content: `✅ **${symbol}** \`${timeframe}\` — found ${displaySignals.length} EQH/EQL level(s) within **$${config.monitors.eqhEqlTolerance.toFixed(2)}**\n*${dataSource}*`,
       embeds,
     });
   } catch (err) {
     console.error('[flow]', err.message);
+    const hint = err.message.includes('403') || err.message.includes('Market Data')
+      ? '\n\nYour Finnhub key is valid, but **candle data requires a paid Finnhub Market Data plan**. The bot should auto-fallback to Yahoo — update your `src` folder from GitHub.'
+      : '';
     await interaction.editReply({
-      content: `Flow scan failed: ${err.message}\nCheck your FINNHUB_API_KEY in .env.`,
+      content: `Flow scan failed: ${err.message}${hint}`,
     });
   }
 }

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { config } from '../config.js';
 import { scanEqhEql } from '../utils/smcStructure.js';
+import { getStockCandles, getCandleSourceLabel } from './candles.js';
 
 const BASE = 'https://finnhub.io/api/v1';
 
@@ -87,7 +88,16 @@ export async function getSpyDailyChange() {
     to: Math.floor(Date.now() / 1000),
   });
 
-  if (data.s !== 'ok' || !data.c?.length) {
+  let c = data.c;
+  let o = data.o;
+
+  if (data.s !== 'ok') {
+    const fallback = await getStockCandles('SPY', 'D', Math.floor(new Date(fromStr).getTime() / 1000), Math.floor(Date.now() / 1000));
+    c = fallback.c;
+    o = fallback.o;
+  }
+
+  if (!c?.length) {
     return null;
   }
 
@@ -158,20 +168,7 @@ function lookbackSeconds(resolution, bars = 120) {
   return seconds * bars;
 }
 
-export async function getStockCandles(symbol, resolution, from, to) {
-  const { data } = await finnhubGet('/stock/candle', {
-    symbol: normalizeTicker(symbol),
-    resolution,
-    from,
-    to,
-  });
-
-  if (data.s !== 'ok') {
-    throw new Error(`No candle data for ${symbol} (${resolution})`);
-  }
-
-  return data;
-}
+export { getStockCandles, getCandleSourceLabel };
 
 export async function getQuote(symbol) {
   const { data } = await finnhubGet('/quote', { symbol: normalizeTicker(symbol) });
@@ -187,7 +184,7 @@ export async function fetchChartImage(ticker, timeframe) {
   const candles = await getStockCandles(symbol, resolution, from, to);
   const buffer = await renderCandlestickChart(symbol, timeframe, candles);
 
-  return { buffer, symbol, interval: timeframe };
+  return { buffer, symbol, interval: timeframe, source: candles.source };
 }
 
 async function renderCandlestickChart(symbol, timeframe, candles) {
@@ -261,10 +258,14 @@ export async function scanTickerSmcFlow(ticker, options = {}) {
   const sweepsOnly = options.sweepsOnly ?? false;
 
   const candles = await getIntradayCandles(symbol, resolution, 150);
-  candles.symbol = symbol;
 
   const result = scanEqhEql(candles, { tolerance });
-  let signals = result.signals.map((s) => ({ ...s, underlying: symbol, timeframe: options.timeframe ?? '5m' }));
+  let signals = result.signals.map((s) => ({
+    ...s,
+    underlying: symbol,
+    timeframe: options.timeframe ?? '5m',
+    dataSource: getCandleSourceLabel(candles),
+  }));
 
   if (sweepsOnly) {
     signals = signals.filter((s) => s.swept);
@@ -275,6 +276,7 @@ export async function scanTickerSmcFlow(ticker, options = {}) {
     signals,
     symbol,
     timeframe: options.timeframe ?? '5m',
+    dataSource: getCandleSourceLabel(candles),
   };
 }
 
