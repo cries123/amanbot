@@ -39,9 +39,6 @@ export const config = {
     port: parseNumber('WEBHOOK_PORT', 3000),
     secret: optionalEnv('WEBHOOK_SECRET'),
   },
-  web: {
-    uiEnabled: optionalEnv('WEB_UI_ENABLED', 'true').toLowerCase() !== 'false',
-  },
   database: {
     url: optionalEnv('DATABASE_URL'),
   },

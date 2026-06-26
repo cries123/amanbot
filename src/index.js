@@ -1,6 +1,6 @@
 import { initDatabase } from './database/db.js';
 import { createBot, sendToChannel } from './bot/client.js';
-import { createWebServer } from './web/server.js';
+import { createWebhookServer } from './webhooks/tradingview.js';
 import { startSmcScanner } from './monitors/smcScanner.js';
 import { startIvMonitor } from './monitors/ivMonitor.js';
 import { startEconomicCalendar } from './monitors/economicCalendar.js';
@@ -13,7 +13,7 @@ async function main() {
   const { client } = await createBot();
   const send = (ch, payload) => sendToChannel(client, ch, payload);
 
-  await createWebServer(client, send);
+  await createWebhookServer(client, send);
 
   startSmcScanner(client, send);
   startIvMonitor(client, send);
