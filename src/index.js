@@ -4,6 +4,9 @@ import { createWebhookServer } from './webhooks/tradingview.js';
 import { startSmcScanner } from './monitors/smcScanner.js';
 import { startIvMonitor } from './monitors/ivMonitor.js';
 import { startEconomicCalendar } from './monitors/economicCalendar.js';
+import { startMarketSession } from './monitors/marketSession.js';
+import { startMorningBriefing } from './monitors/morningBriefing.js';
+import { startAdminHeartbeat } from './monitors/adminHeartbeat.js';
 
 async function main() {
   console.log('[amanbot] Starting...');
@@ -18,6 +21,9 @@ async function main() {
   startSmcScanner(client, send);
   startIvMonitor(client, send);
   startEconomicCalendar(client, send);
+  startMarketSession(client, send);
+  startMorningBriefing(client, send);
+  startAdminHeartbeat(client, send);
 
   console.log('[amanbot] All modules loaded');
 }

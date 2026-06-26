@@ -1,9 +1,9 @@
-import { Events, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { Events } from 'discord.js';
 import { config } from '../config.js';
 import { detectImpersonation, formatImpersonationReason } from '../utils/impersonation.js';
+import { postModLog } from '../utils/modLog.js';
 
-const BAN_REASON = 'Impersonation — automatic ban';
-const recentlyHandled = new Set();
+const recentlyAlerted = new Set();
 
 export function startImpersonationGuard(client) {
   if (!config.moderation.impersonationGuard) {
@@ -32,7 +32,7 @@ export function startImpersonationGuard(client) {
     scanExistingMembers(client).catch((err) => console.error('[impersonation:scan]', err.message));
   });
 
-  console.log('[impersonation] Guard active — watching for impersonator name/@ combos');
+  console.log('[impersonation] Guard active — alerts for impersonator name/@ combos');
 }
 
 async function scanExistingMembers(client) {
@@ -63,57 +63,30 @@ async function checkMember(member) {
   if (!rule) return;
 
   const dedupKey = `${member.guild.id}:${member.id}:${rule.username}`;
-  if (recentlyHandled.has(dedupKey)) return;
-  recentlyHandled.add(dedupKey);
-  setTimeout(() => recentlyHandled.delete(dedupKey), 60_000);
-
-  const me = member.guild.members.me;
-  if (!me?.permissions.has(PermissionFlagsBits.BanMembers)) {
-    console.error('[impersonation] Bot lacks Ban Members permission');
-    return;
-  }
-
-  if (member.roles.highest.position >= me.roles.highest.position) {
-    console.warn(`[impersonation] Cannot ban ${member.user.tag} — role hierarchy`);
-    return;
-  }
+  if (recentlyAlerted.has(dedupKey)) return;
+  recentlyAlerted.add(dedupKey);
+  setTimeout(() => recentlyAlerted.delete(dedupKey), 60 * 60 * 1000);
 
   const reason = formatImpersonationReason(rule);
-  console.log(`[impersonation] Banning ${member.user.tag} (${member.id}) — ${reason}`);
+  console.log(`[impersonation] Alert — ${member.user.tag} (${member.id}) — ${reason}`);
 
-  try {
-    await member.send({
-      content: `You were removed from **${member.guild.name}** for impersonation (${rule.label} identity).`,
-    }).catch(() => {});
-
-    await member.ban({
-      reason: `${BAN_REASON} | ${reason}`,
-      deleteMessageSeconds: 60 * 60 * 24,
-    });
-
-    await notifyMods(member, rule, reason);
-  } catch (err) {
-    console.error(`[impersonation] Failed to ban ${member.user.tag}:`, err.message);
-  }
+  await sendAlert(member, rule, reason);
 }
 
-async function notifyMods(member, rule, reason) {
-  const channelId = config.channels.modLog ?? config.channels.smcAlerts;
-  if (!channelId) return;
-
-  const channel = await member.client.channels.fetch(channelId).catch(() => null);
-  if (!channel?.isTextBased()) return;
-
-  const embed = new EmbedBuilder()
-    .setTitle('🚫 Impersonator Banned')
-    .setColor(0xe74c3c)
-    .addFields(
+async function sendAlert(member, rule, reason) {
+  await postModLog(member.client, {
+    action: 'impersonation',
+    title: '⚠️ Possible Impersonator Detected',
+    description: 'A member matched a known impersonation signature. Review and take action if needed.',
+    fields: [
       { name: 'User', value: `${member.user.tag} (\`${member.id}\`)`, inline: true },
       { name: 'Matched', value: `${rule.label} (@${rule.username})`, inline: true },
       { name: 'Display Name', value: member.displayName, inline: true },
-      { name: 'Reason', value: reason, inline: false },
-    )
-    .setTimestamp();
-
-  await channel.send({ embeds: [embed] }).catch(() => {});
+      { name: '@ Username', value: `\`${member.user.username}\``, inline: true },
+      { name: 'Account Created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
+      { name: 'Joined Server', value: member.joinedAt ? `<t:${Math.floor(member.joinedAt.getTime() / 1000)}:R>` : 'Unknown', inline: true },
+      { name: 'Details', value: reason, inline: false },
+    ],
+    thumbnail: member.user.displayAvatarURL(),
+  });
 }

@@ -29,6 +29,9 @@ export const config = {
     ivAlerts: optionalEnv('CHANNEL_IV_ALERTS'),
     economic: optionalEnv('CHANNEL_ECONOMIC'),
     modLog: optionalEnv('CHANNEL_MOD_LOG'),
+    welcome: optionalEnv('CHANNEL_WELCOME'),
+    marketAlerts: optionalEnv('CHANNEL_MARKET_ALERTS'),
+    adminHealth: optionalEnv('CHANNEL_ADMIN_HEALTH'),
   },
   apis: {
     chartImg: optionalEnv('CHART_IMG_API_KEY'),
@@ -78,5 +81,13 @@ export const config = {
       .split(',')
       .map((id) => id.trim())
       .filter(Boolean),
+    scamFilter: optionalEnv('SCAM_FILTER_ENABLED', 'true').toLowerCase() !== 'false',
+    raidProtection: optionalEnv('RAID_PROTECTION_ENABLED', 'true').toLowerCase() !== 'false',
+    raidJoinThreshold: parseNumber('RAID_JOIN_THRESHOLD', 5),
+    raidWindowSeconds: parseNumber('RAID_WINDOW_SECONDS', 60),
+    newAccountAlert: optionalEnv('NEW_ACCOUNT_ALERT_ENABLED', 'true').toLowerCase() !== 'false',
+    newAccountMaxDays: parseNumber('NEW_ACCOUNT_MAX_DAYS', 7),
+    warnThreshold: parseNumber('WARN_THRESHOLD', 3),
+    warnAutoMuteHours: parseNumber('WARN_AUTO_MUTE_HOURS', 24),
   },
 };

@@ -6,6 +6,7 @@ import {
   ModerationError,
   Perms,
 } from '../../utils/moderation.js';
+import { postModLog } from '../../utils/modLog.js';
 
 export const data = new SlashCommandBuilder()
   .setName('kick')
@@ -42,6 +43,12 @@ export async function execute(interaction) {
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
+
+    await postModLog(interaction.client, {
+      action: 'kick',
+      title: '👢 Member Kicked',
+      fields: embed.data.fields,
+    });
   } catch (err) {
     const message = err instanceof ModerationError ? err.message : 'Failed to kick member.';
     await interaction.reply({ content: message, ephemeral: true });

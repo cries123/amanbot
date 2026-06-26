@@ -2,19 +2,29 @@ import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { config } from '../config.js';
 import { loadCommands, handleInteraction } from './handlers/commandHandler.js';
 import { startImpersonationGuard } from '../monitors/impersonationGuard.js';
+import { startScamFilter } from '../monitors/scamFilter.js';
+import { startMemberJoinMonitor } from '../monitors/memberJoin.js';
 
 export async function createBot() {
+  const intents = [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+  ];
+
+  if (config.moderation.scamFilter) {
+    intents.push(GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent);
+  }
+
   const client = new Client({
-    intents: [
-      GatewayIntentBits.Guilds,
-      GatewayIntentBits.GuildMembers,
-    ],
+    intents,
     partials: [Partials.Channel, Partials.GuildMember],
   });
 
   const commands = await loadCommands();
 
   startImpersonationGuard(client);
+  startScamFilter(client);
+  startMemberJoinMonitor(client);
 
   client.once('ready', () => {
     console.log(`[discord] Logged in as ${client.user.tag}`);
@@ -39,4 +49,22 @@ export async function sendToChannel(client, channelId, payload) {
   }
 
   return channel.send(payload);
+}
+
+export async function editChannelMessage(client, channelId, messageId, payload) {
+  if (!channelId || !messageId) return null;
+
+  const channel = await client.channels.fetch(channelId);
+  if (!channel?.isTextBased()) {
+    console.warn(`[discord] Channel ${channelId} is not text-based`);
+    return null;
+  }
+
+  const message = await channel.messages.fetch(messageId).catch(() => null);
+  if (!message) {
+    console.warn(`[discord] Message ${messageId} not found in ${channelId}`);
+    return null;
+  }
+
+  return message.edit(payload);
 }

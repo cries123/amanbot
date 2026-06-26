@@ -36,6 +36,15 @@ export async function initDatabase() {
       event_key VARCHAR(128) NOT NULL UNIQUE,
       sent_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS member_warnings (
+      id SERIAL PRIMARY KEY,
+      guild_id VARCHAR(32) NOT NULL,
+      user_id VARCHAR(32) NOT NULL,
+      moderator_id VARCHAR(32) NOT NULL,
+      reason TEXT,
+      warned_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
 
   console.log('[db] Schema ready');
