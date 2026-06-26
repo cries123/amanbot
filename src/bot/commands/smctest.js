@@ -78,7 +78,7 @@ export async function execute(interaction) {
     .setTitle(`EQH/EQL Wick Scan — ${timeframe}`)
     .setColor(0x5865f2)
     .setDescription([
-      'Last **3 equal low wicks** and **3 equal high wicks** on the chart (no sweep logic).',
+      'Last **3 equal low wicks** and **3 equal high wicks** on the chart.',
       '',
       ...summary,
       '',

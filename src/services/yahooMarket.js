@@ -8,7 +8,7 @@ export const SMC_TICKERS = [
 ];
 
 export const SMC_TIMEFRAMES = {
-  '5m': { interval: '5m', barMinutes: 5, contextBars: 4, minBarSeparation: 3, scanDays: 1, sessionOnly: true },
+  '5m': { interval: '5m', barMinutes: 5, contextBars: 4, minBarSeparation: 1, scanDays: 1, sessionOnly: true },
   '1h': { interval: '1h', barMinutes: 60, contextBars: 0, minBarSeparation: 1, scanDays: 1, sessionOnly: true },
   '4h': { interval: '4h', barMinutes: 240, contextBars: 0, minBarSeparation: 1, scanDays: 1, sessionOnly: true },
 };

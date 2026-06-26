@@ -10,8 +10,8 @@ const SMC_COLORS = {
 };
 
 const SMC_LABELS = {
-  EQH: 'Equal Highs Sweep',
-  EQL: 'Equal Lows Sweep',
+  EQH: 'Equal Highs (EQH)',
+  EQL: 'Equal Lows (EQL)',
   FVG_CREATE: 'Fair Value Gap Created',
   FVG_FILL: 'Fair Value Gap Filled',
 };

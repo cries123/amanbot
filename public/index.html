@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="AmanBot — Discord-native SMC scanner, market intelligence, and trading tools for the Aman Trades community." />
+  <title>AmanBot — Smart Trading Alerts in Discord</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="/" class="logo">
+        <div class="logo-icon">📈</div>
+        AmanBot
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#commands">Commands</a></li>
+        <li><a href="#how">How It Works</a></li>
+        <li><a href="/dashboard">Dashboard</a></li>
+      </ul>
+      <a href="/dashboard" class="btn btn-primary">Open Dashboard</a>
+    </div>
+  </nav>
+
+  <header class="hero container">
+    <div class="badge"><span class="badge-dot"></span> Built for Aman Trades</div>
+    <h1>Your <span>Trading Command Center</span><br />Inside Discord</h1>
+    <p class="hero-sub">
+      Automated SMC structure alerts, live charts, volatility monitoring, economic calendar warnings,
+      and options tools — all delivered where your community already trades.
+    </p>
+    <div class="hero-actions">
+      <a href="/dashboard" class="btn btn-primary">Launch Dashboard →</a>
+      <a href="#features" class="btn btn-ghost">Explore Features</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-value">3</div>
+        <div class="stat-label">Index Tickers</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">3</div>
+        <div class="stat-label">SMC Timeframes</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">10+</div>
+        <div class="stat-label">Slash Commands</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">24/5</div>
+        <div class="stat-label">Market Coverage</div>
+      </div>
+    </div>
+  </header>
+
+  <section id="features" class="section container">
+    <div class="section-header">
+      <div class="section-tag">Features</div>
+      <h2>Everything a serious trader needs</h2>
+      <p>From Smart Money Concepts detection to macro event warnings — no tab-switching required.</p>
+    </div>
+
+    <div class="features-grid">
+      <article class="feature-card">
+        <div class="feature-icon gold">📊</div>
+        <h3>SMC Structure Scanner</h3>
+        <p>Automated equal-high and equal-low wick detection on SPY, SPX, and QQQ using Yahoo Finance data.</p>
+        <ul class="feature-list">
+          <li>5m, 1h, and 4h timeframes</li>
+          <li>$0.05 wick tolerance (configurable)</li>
+          <li>Last 3 EQH + 3 EQL per scan</li>
+          <li>Discord embeds with touch times (EST)</li>
+        </ul>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon green">⚡</div>
+        <h3>On-Demand /flow Scan</h3>
+        <p>Run a live EQH/EQL wick scan anytime. Pick your ticker and timeframe and get instant structure levels.</p>
+        <ul class="feature-list">
+          <li>SPY, SPX, QQQ support</li>
+          <li>Real-time Yahoo OHLC data</li>
+          <li>Wick zone, touches, timestamps</li>
+        </ul>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon blue">🔗</div>
+        <h3>TradingView Webhooks</h3>
+        <p>Bridge your TradingView alerts into Discord. Optional — the built-in scanner works without TV.</p>
+        <ul class="feature-list">
+          <li>EQH, EQL, FVG create & fill</li>
+          <li>Secret-protected endpoint</li>
+          <li>Rich embed formatting</li>
+        </ul>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon red">📉</div>
+        <h3>IV Extremes Monitor</h3>
+        <p>Tracks realized volatility percentile across a 10-ticker watchlist. Alerts when options are historically cheap or expensive.</p>
+        <ul class="feature-list">
+          <li>Scans at 9am, 12pm, 3pm ET</li>
+          <li>≤10% = cheap premium signal</li>
+          <li>≥90% = expensive premium signal</li>
+        </ul>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon gold">📅</div>
+        <h3>Economic Calendar</h3>
+        <p>Never get caught off-guard by CPI, FOMC, or NFP. Weekly digest plus 30-minute pre-event warnings.</p>
+        <ul class="feature-list">
+          <li>Monday high-impact overview</li>
+          <li>@here warnings 30 min before</li>
+          <li>Estimate & previous values</li>
+        </ul>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon green">🛠️</div>
+        <h3>Trader Toolkit</h3>
+        <p>Charts, news, and options math — all from slash commands in your server.</p>
+        <ul class="feature-list">
+          <li>/chart — candlestick PNGs (1m–1D)</li>
+          <li>/news — live headlines + summaries</li>
+          <li>/breakeven — 6 options strategies</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section id="commands" class="section container">
+    <div class="section-header">
+      <div class="section-tag">Commands</div>
+      <h2>Slash commands at your fingertips</h2>
+      <p>Type <code style="font-family:var(--mono);color:var(--gold)">/</code> in Discord to access every tool.</p>
+    </div>
+
+    <div class="commands-wrap">
+      <table class="commands-table">
+        <thead>
+          <tr>
+            <th>Command</th>
+            <th>Access</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="cmd-name">/flow</span></td>
+            <td><span class="cmd-access all">Everyone</span></td>
+            <td>Live EQH/EQL wick scan — last 3 equal highs and lows on SPY, SPX, or QQQ</td>
+          </tr>
+          <tr>
+            <td><span class="cmd-name">/chart</span></td>
+            <td><span class="cmd-access all">Everyone</span></td>
+            <td>Render a candlestick chart for any ticker (1m, 5m, 15m, 1h, 4h, 1D)</td>
+          </tr>
+          <tr>
+            <td><span class="cmd-name">/news</span></td>
+            <td><span class="cmd-access all">Everyone</span></td>
+            <td>Latest headlines and summaries for any ticker</td>
+          </tr>
+          <tr>
+            <td><span class="cmd-name">/breakeven</span></td>
+            <td><span class="cmd-access all">Everyone</span></td>
+            <td>Options breakeven, max reward, and max risk for 6 strategies</td>
+          </tr>
+          <tr>
+            <td><span class="cmd-name">/smctest</span></td>
+            <td><span class="cmd-access admin">Admin</span></td>
+            <td>Replay last session EQH/EQL scan for testing (all tickers supported)</td>
+          </tr>
+          <tr>
+            <td><span class="cmd-name">/social</span></td>
+            <td><span class="cmd-access admin">Admin</span></td>
+            <td>Post official Aman Trades social links</td>
+          </tr>
+          <tr>
+            <td><span class="cmd-name">/ban /kick /mute</span></td>
+            <td><span class="cmd-access mod">Moderator</span></td>
+            <td>Community moderation with role hierarchy checks</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="how" class="section container">
+    <div class="section-header">
+      <div class="section-tag">How It Works</div>
+      <h2>Up and running in minutes</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Invite the Bot</h3>
+        <p>Add AmanBot to your Discord server and configure channel IDs in your environment.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Alerts Flow In</h3>
+        <p>Cron monitors scan markets during RTH and post SMC, IV, and macro alerts automatically.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Trade with Context</h3>
+        <p>Use slash commands and the web dashboard for on-demand structure, charts, and news.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="container">
+    <div class="cta">
+      <h2>See the markets live</h2>
+      <p>Open the dashboard for real-time quotes, SMC levels, volatility data, and charts.</p>
+      <a href="/dashboard" class="btn btn-primary">Open Trading Dashboard →</a>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="https://www.instagram.com/amantradesss" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://x.com/amantradesss" target="_blank" rel="noopener">X</a>
+      <a href="https://www.youtube.com/@amantradess" target="_blank" rel="noopener">YouTube</a>
+      <a href="/dashboard">Dashboard</a>
+    </div>
+    <p>AmanBot · Built for the Aman Trades community · Not financial advice</p>
+  </footer>
+
+  <script src="/js/landing.js"></script>
+</body>
+</html>
