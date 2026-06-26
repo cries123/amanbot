@@ -1,14 +1,20 @@
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { config } from '../config.js';
 import { loadCommands, handleInteraction } from './handlers/commandHandler.js';
+import { startImpersonationGuard } from '../monitors/impersonationGuard.js';
 
 export async function createBot() {
   const client = new Client({
-    intents: [GatewayIntentBits.Guilds],
-    partials: [Partials.Channel],
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMembers,
+    ],
+    partials: [Partials.Channel, Partials.GuildMember],
   });
 
   const commands = await loadCommands();
+
+  startImpersonationGuard(client);
 
   client.once('ready', () => {
     console.log(`[discord] Logged in as ${client.user.tag}`);
