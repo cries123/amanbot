@@ -345,6 +345,7 @@ export function scanRecentWickLevels(candles, {
   toleranceDollars = 0.05,
   minBarSeparation = 1,
   limit = 3,
+  withSweepDetection = false,
 } = {}) {
   const end = scanEnd ?? candles.length - 1;
   if (end < scanStart) return { eqh: [], eql: [], signals: [] };
@@ -368,21 +369,35 @@ export function scanRecentWickLevels(candles, {
     spread: cluster.spread,
     tolerance: toleranceDollars,
     touches: cluster.touches,
+    formationIndex: cluster.lastIndex,
     formationTime: cluster.lastTime,
     touchTimes: cluster.points.map((p) => p.time),
+    swept: false,
   });
 
+  const mapCluster = withSweepDetection
+    ? (cluster, structure) => buildStructureSignal(cluster, structure, candles, end, toleranceDollars)
+    : toLevel;
+
+  const byRecency = (a, b) => {
+    const timeA = a.swept ? a.barTime : a.formationTime;
+    const timeB = b.swept ? b.barTime : b.formationTime;
+    return timeB - timeA;
+  };
+
+  const sortFn = withSweepDetection ? byRecency : (a, b) => b.formationTime - a.formationTime;
+
   const eqh = clusterWickLevels(highWicks, toleranceDollars, minBarSeparation)
-    .sort((a, b) => b.lastTime - a.lastTime)
+    .sort(sortFn)
     .slice(0, limit)
-    .map((cluster) => toLevel(cluster, 'EQH'));
+    .map((cluster) => mapCluster(cluster, 'EQH'));
 
   const eql = clusterWickLevels(lowWicks, toleranceDollars, minBarSeparation)
-    .sort((a, b) => b.lastTime - a.lastTime)
+    .sort(sortFn)
     .slice(0, limit)
-    .map((cluster) => toLevel(cluster, 'EQL'));
+    .map((cluster) => mapCluster(cluster, 'EQL'));
 
-  return { eqh, eql, signals: [...eqh, ...eql] };
+  return { eqh, eql, signals: [...eqh, ...eql], scanEnd: end };
 }
 
 export function scanSessionEqhEql(candles, {

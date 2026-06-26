@@ -19,21 +19,23 @@ export async function scanTickerWicks(ticker, overrides = {}) {
   }
 
   const scanEnd = Math.min(data.scanEnd, candles.length - 1);
-  const { eqh, eql, signals } = scanRecentWickLevels(candles, {
+  const scan = scanRecentWickLevels(candles, {
     scanStart: data.scanStart,
     scanEnd,
     toleranceDollars: overrides.toleranceDollars ?? config.monitors.eqhEqlTolerance,
     minBarSeparation: overrides.minBarSeparation ?? tf.minBarSeparation,
     limit: overrides.limit ?? 3,
+    withSweepDetection: overrides.withSweepDetection ?? false,
   });
 
   return {
     label: data.label,
     symbol: data.symbol,
     candles,
-    eqh,
-    eql,
-    signals,
+    eqh: scan.eqh,
+    eql: scan.eql,
+    signals: scan.signals,
+    scanEnd,
     timeframe,
     tradingDate: data.tradingDate,
     sessionBars: data.sessionBars,
@@ -70,14 +72,18 @@ export function getTimeframesDueNow(date = new Date()) {
   return due.filter((tf) => config.monitors.smcTimeframes.includes(tf));
 }
 
-export async function scanAllTickersLive(timeframes = null) {
+export async function scanAllTickersLive(timeframes = null, options = {}) {
   const frames = timeframes ?? getTimeframesDueNow();
   const results = [];
 
   for (const timeframe of frames) {
     for (const { label } of SMC_TICKERS) {
       try {
-        results.push(await scanTickerWicks(label, { timeframe, live: true }));
+        results.push(await scanTickerWicks(label, {
+          timeframe,
+          live: true,
+          withSweepDetection: options.withSweepDetection ?? false,
+        }));
       } catch (err) {
         console.error(`[smc:${label}:${timeframe}]`, formatYahooError(err));
       }

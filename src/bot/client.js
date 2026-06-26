@@ -40,3 +40,21 @@ export async function sendToChannel(client, channelId, payload) {
 
   return channel.send(payload);
 }
+
+export async function editChannelMessage(client, channelId, messageId, payload) {
+  if (!channelId || !messageId) return null;
+
+  const channel = await client.channels.fetch(channelId);
+  if (!channel?.isTextBased()) {
+    console.warn(`[discord] Channel ${channelId} is not text-based`);
+    return null;
+  }
+
+  const message = await channel.messages.fetch(messageId).catch(() => null);
+  if (!message) {
+    console.warn(`[discord] Message ${messageId} not found in ${channelId}`);
+    return null;
+  }
+
+  return message.edit(payload);
+}
