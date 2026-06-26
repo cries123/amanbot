@@ -7,6 +7,7 @@ import {
   ModerationError,
   Perms,
 } from '../../utils/moderation.js';
+import { postModLog } from '../../utils/modLog.js';
 
 export const data = new SlashCommandBuilder()
   .setName('mute')
@@ -53,6 +54,12 @@ export async function execute(interaction) {
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
+
+    await postModLog(interaction.client, {
+      action: 'mute',
+      title: '🔇 Member Muted',
+      fields: embed.data.fields,
+    });
   } catch (err) {
     const message = err instanceof ModerationError ? err.message : 'Failed to mute member.';
     await interaction.reply({ content: message, ephemeral: true });

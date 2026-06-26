@@ -2,19 +2,29 @@ import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { config } from '../config.js';
 import { loadCommands, handleInteraction } from './handlers/commandHandler.js';
 import { startImpersonationGuard } from '../monitors/impersonationGuard.js';
+import { startScamFilter } from '../monitors/scamFilter.js';
+import { startMemberJoinMonitor } from '../monitors/memberJoin.js';
 
 export async function createBot() {
+  const intents = [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+  ];
+
+  if (config.moderation.scamFilter) {
+    intents.push(GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent);
+  }
+
   const client = new Client({
-    intents: [
-      GatewayIntentBits.Guilds,
-      GatewayIntentBits.GuildMembers,
-    ],
+    intents,
     partials: [Partials.Channel, Partials.GuildMember],
   });
 
   const commands = await loadCommands();
 
   startImpersonationGuard(client);
+  startScamFilter(client);
+  startMemberJoinMonitor(client);
 
   client.once('ready', () => {
     console.log(`[discord] Logged in as ${client.user.tag}`);

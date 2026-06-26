@@ -1,6 +1,7 @@
-import { Events, EmbedBuilder } from 'discord.js';
+import { Events } from 'discord.js';
 import { config } from '../config.js';
 import { detectImpersonation, formatImpersonationReason } from '../utils/impersonation.js';
+import { postModLog } from '../utils/modLog.js';
 
 const recentlyAlerted = new Set();
 
@@ -73,23 +74,11 @@ async function checkMember(member) {
 }
 
 async function sendAlert(member, rule, reason) {
-  const channelId = config.channels.modLog;
-  if (!channelId) {
-    console.warn('[impersonation] CHANNEL_MOD_LOG not set — cannot send alert');
-    return;
-  }
-
-  const channel = await member.client.channels.fetch(channelId).catch(() => null);
-  if (!channel?.isTextBased()) {
-    console.warn(`[impersonation] Mod log channel ${channelId} is not text-based`);
-    return;
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle('⚠️ Possible Impersonator Detected')
-    .setColor(0xe67e22)
-    .setDescription('A member matched a known impersonation signature. Review and take action if needed.')
-    .addFields(
+  await postModLog(member.client, {
+    action: 'impersonation',
+    title: '⚠️ Possible Impersonator Detected',
+    description: 'A member matched a known impersonation signature. Review and take action if needed.',
+    fields: [
       { name: 'User', value: `${member.user.tag} (\`${member.id}\`)`, inline: true },
       { name: 'Matched', value: `${rule.label} (@${rule.username})`, inline: true },
       { name: 'Display Name', value: member.displayName, inline: true },
@@ -97,11 +86,7 @@ async function sendAlert(member, rule, reason) {
       { name: 'Account Created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
       { name: 'Joined Server', value: member.joinedAt ? `<t:${Math.floor(member.joinedAt.getTime() / 1000)}:R>` : 'Unknown', inline: true },
       { name: 'Details', value: reason, inline: false },
-    )
-    .setThumbnail(member.user.displayAvatarURL())
-    .setTimestamp();
-
-  await channel.send({ embeds: [embed] }).catch((err) => {
-    console.error('[impersonation] Failed to send alert:', err.message);
+    ],
+    thumbnail: member.user.displayAvatarURL(),
   });
 }

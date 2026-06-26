@@ -7,8 +7,7 @@ import {
   ModerationError,
   Perms,
 } from '../../utils/moderation.js';
-
-const tempBans = new Map();
+import { postModLog } from '../../utils/modLog.js';
 
 export const data = new SlashCommandBuilder()
   .setName('ban')
@@ -61,6 +60,12 @@ export async function execute(interaction) {
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
+
+    await postModLog(interaction.client, {
+      action: 'ban',
+      title: '🔨 Member Banned',
+      fields: embed.data.fields,
+    });
   } catch (err) {
     await handleModError(interaction, err);
   }
