@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — AmanBot</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body class="dashboard-body">
+  <aside class="sidebar">
+    <a href="/" class="logo">
+      <div class="logo-icon">📈</div>
+      AmanBot
+    </a>
+    <ul class="sidebar-nav">
+      <li><a href="#overview" class="active" data-section="overview">🏠 Overview</a></li>
+      <li><a href="#smc" data-section="smc">📊 SMC Levels</a></li>
+      <li><a href="#volatility" data-section="volatility">📉 Volatility</a></li>
+      <li><a href="#calendar" data-section="calendar">📅 Calendar</a></li>
+      <li><a href="#news" data-section="news">📰 News</a></li>
+      <li><a href="#chart" data-section="chart">📈 Chart</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="/" style="color:var(--text-dim)">← Back to home</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Trading Dashboard</h1>
+        <div class="topbar-meta" id="clock">—</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="market-pill closed" id="market-status">Market —</span>
+        <button class="refresh-btn" id="refresh-all">↻ Refresh</button>
+      </div>
+    </div>
+
+    <div class="dash-grid" id="overview">
+      <div class="panel col-12">
+        <div class="panel-header">
+          <span class="panel-title">Watchlist Quotes</span>
+        </div>
+        <div class="panel-body">
+          <div class="quotes-row" id="quotes">
+            <div class="loading">Loading quotes…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-grid" id="smc" style="margin-top:16px">
+      <div class="panel col-12">
+        <div class="panel-header">
+          <span class="panel-title">SMC Wick Levels</span>
+          <div class="tf-pills" id="smc-timeframes">
+            <button class="tf-pill" data-tf="5m">5m</button>
+            <button class="tf-pill active" data-tf="1h">1h</button>
+            <button class="tf-pill" data-tf="4h">4h</button>
+          </div>
+        </div>
+        <div class="panel-body" id="smc-levels">
+          <div class="loading">Scanning structure…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-grid" style="margin-top:16px">
+      <div class="panel col-6" id="volatility">
+        <div class="panel-header">
+          <span class="panel-title">IV Percentile</span>
+        </div>
+        <div class="panel-body" id="iv-panel">
+          <div class="loading">Loading volatility…</div>
+        </div>
+      </div>
+
+      <div class="panel col-6" id="calendar">
+        <div class="panel-header">
+          <span class="panel-title">Economic Calendar</span>
+        </div>
+        <div class="panel-body" id="calendar-panel">
+          <div class="loading">Loading events…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-grid" style="margin-top:16px">
+      <div class="panel col-6" id="news">
+        <div class="panel-header">
+          <span class="panel-title">News</span>
+          <div class="chart-controls" style="margin:0">
+            <select id="news-ticker">
+              <option value="SPY">SPY</option>
+              <option value="QQQ">QQQ</option>
+              <option value="SPX">SPX</option>
+              <option value="NVDA">NVDA</option>
+              <option value="AAPL">AAPL</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-body" id="news-panel">
+          <div class="loading">Loading news…</div>
+        </div>
+      </div>
+
+      <div class="panel col-6" id="chart">
+        <div class="panel-header">
+          <span class="panel-title">Chart</span>
+        </div>
+        <div class="panel-body">
+          <div class="chart-controls">
+            <input type="text" id="chart-ticker" value="SPY" placeholder="Ticker" style="width:80px" />
+            <select id="chart-timeframe">
+              <option value="5m">5m</option>
+              <option value="15m">15m</option>
+              <option value="1h" selected>1h</option>
+              <option value="4h">4h</option>
+              <option value="1D">1D</option>
+            </select>
+            <button class="refresh-btn" id="load-chart">Load</button>
+          </div>
+          <img class="chart-img" id="chart-img" alt="Chart" />
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>
