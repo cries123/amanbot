@@ -28,6 +28,7 @@ export const config = {
     optionsFlow: optionalEnv('CHANNEL_OPTIONS_FLOW'),
     ivAlerts: optionalEnv('CHANNEL_IV_ALERTS'),
     economic: optionalEnv('CHANNEL_ECONOMIC'),
+    modLog: optionalEnv('CHANNEL_MOD_LOG'),
   },
   apis: {
     chartImg: optionalEnv('CHART_IMG_API_KEY'),
@@ -71,4 +72,11 @@ export const config = {
     smcScan: optionalEnv('SMC_SCAN_CRON', '1,6,11,16,21,26,31,36,41,46,51,56 9-15 * * 1-5'),
   },
   timezone: 'America/New_York',
+  moderation: {
+    impersonationGuard: optionalEnv('IMPERSONATION_GUARD_ENABLED', 'true').toLowerCase() !== 'false',
+    impersonationAllowlist: optionalEnv('IMPERSONATION_ALLOWLIST', '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean),
+  },
 };
