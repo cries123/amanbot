@@ -59,8 +59,12 @@ export function buildWatchlistAlertEmbed({ ticker, signal, timeframe = '5m', tim
   const isBull = signal.direction === 'bullish';
   const structure = signal.structure ?? signal.type;
   const tzAbbr = getTimezoneAbbr(timezone, signal.formationTime ?? signal.barTime);
+  const isStructure = structure === 'EQH' || structure === 'EQL' || structure === 'EQH_SWEEP' || structure === 'EQL_SWEEP';
 
   let title = `${ticker} — ${signal.setupType ?? structure}`;
+  if (isStructure || structure === 'FVG' || signal.type?.includes('FVG')) {
+    title = `${ticker} — ${signal.setupType ?? structure} [${timeframe}]`;
+  }
   if (swept) title += ' — Swept';
   if (invalidated) title += ' — Invalidated';
 
@@ -71,7 +75,7 @@ export function buildWatchlistAlertEmbed({ ticker, signal, timeframe = '5m', tim
 
   const fields = [
     { name: 'Type', value: structure, inline: true },
-    { name: 'Timeframe', value: `\`${timeframe}\``, inline: true },
+    { name: 'Chart', value: `\`${timeframe}\``, inline: true },
     { name: 'Status', value: invalidated ? '**Invalidated**' : (swept ? '**Swept**' : '**Active**'), inline: true },
   ];
 

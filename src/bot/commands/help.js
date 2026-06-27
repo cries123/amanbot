@@ -17,6 +17,7 @@ const PAGES = {
     fields: [
       { name: 'Setup', value: 'Run `/watchlist` — **Add**, **Remove**, **List**, **Alert Types**, **Delivery**, **Settings**', inline: false },
       { name: 'Settings', value: 'Pick your timezone — times in alerts and `/flow` show in your zone', inline: false },
+      { name: 'Lookback', value: 'Set how many days `/flow` and `/levels` scan per timeframe (e.g. 1 month on 1h)', inline: false },
       { name: 'Delivery', value: '**DM** (private) or **Alerts Channel** (ping in server — no DMs needed)', inline: false },
       { name: 'Alert types', value: '**EQH** — equal high wicks\n**EQL** — equal low wicks\n**FVG** — fair value gaps\n**Volume** — unusual volume spikes\nToggle any off in **Alert Types**', inline: false },
       { name: 'Updates', value: 'The same DM embed updates when a level is **swept** or **invalidated**.', inline: false },
@@ -27,8 +28,8 @@ const PAGES = {
     description: 'On-demand market tools.',
     color: 0x2ecc71,
     fields: [
-      { name: '/flow', value: 'Live EQH/EQL scan for SPY, SPX, QQQ', inline: true },
-      { name: '/levels', value: 'All tickers in one view', inline: true },
+      { name: '/flow', value: 'EQH/EQL scan for your watchlist — set lookback in **Lookback**', inline: true },
+      { name: '/levels', value: 'EQH/EQL summary for your watchlist', inline: true },
       { name: '/quote', value: 'Quick price quote', inline: true },
       { name: '/earnings', value: 'Upcoming earnings date + estimates', inline: true },
       { name: '/news', value: 'Latest headlines (commands channel, only you see it)', inline: true },

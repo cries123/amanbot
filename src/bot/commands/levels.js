@@ -1,12 +1,12 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { config } from '../../config.js';
 import { scanTickerWicks } from '../../services/smcScanner.js';
-
-const TICKERS = ['SPY', 'SPX', 'QQQ'];
+import { getUserWatchlist, getUserSettings } from '../../services/watchlist.js';
+import { formatLookbackLabel } from '../../utils/lookback.js';
 
 export const data = new SlashCommandBuilder()
   .setName('levels')
-  .setDescription('EQH/EQL levels for SPY, SPX, and QQQ in one view')
+  .setDescription('EQH/EQL levels for tickers on your watchlist')
   .addStringOption((opt) =>
     opt
       .setName('timeframe')
@@ -24,26 +24,53 @@ export async function execute(interaction) {
   await interaction.deferReply();
 
   try {
-    const sections = [];
+    const tickers = await getUserWatchlist(interaction.user.id);
 
-    for (const ticker of TICKERS) {
-      const result = await scanTickerWicks(ticker, { timeframe, live: true, sortMode: 'level' });
-      const eql = result.eql.slice(0, 2).map((l) => `$${l.level.toFixed(2)}`).join(', ') || '—';
-      const eqh = result.eqh.slice(0, 2).map((l) => `$${l.level.toFixed(2)}`).join(', ') || '—';
-
-      sections.push({
-        name: `${result.label} (${timeframe})`,
-        value: `**EQL:** ${eql}\n**EQH:** ${eqh}`,
-        inline: false,
+    if (!tickers.length) {
+      await interaction.editReply({
+        content: 'Your watchlist is empty. Use `/watchlist` → **Add** to add tickers first.',
       });
+      return;
+    }
+
+    const settings = await getUserSettings(interaction.user.id);
+    const lookbackDays = settings.lookbackDays?.[timeframe] ?? 7;
+    const windowLabel = formatLookbackLabel(lookbackDays, timeframe);
+    const sections = [];
+    const failed = [];
+
+    for (const ticker of tickers) {
+      try {
+        const result = await scanTickerWicks(ticker, {
+          timeframe,
+          live: true,
+          sortMode: 'level',
+          scanDays: lookbackDays,
+          sessionOnly: lookbackDays <= 1,
+        });
+        const eql = result.eql.slice(0, 2).map((l) => `$${l.level.toFixed(2)}`).join(', ') || '—';
+        const eqh = result.eqh.slice(0, 2).map((l) => `$${l.level.toFixed(2)}`).join(', ') || '—';
+
+        sections.push({
+          name: `${result.label} (${timeframe})`,
+          value: `**EQL:** ${eql}\n**EQH:** ${eqh}`,
+          inline: false,
+        });
+      } catch (err) {
+        failed.push(`${ticker}: ${err.message}`);
+      }
     }
 
     const embed = new EmbedBuilder()
-      .setTitle(`Market Levels — ${timeframe}`)
+      .setTitle(`Watchlist Levels — ${timeframe}`)
       .setColor(0xd4af37)
-      .setDescription(`Nearest EQH/EQL wicks (≤ $${config.monitors.eqhEqlTolerance.toFixed(2)})`)
+      .setDescription(
+        failed.length
+          ? `Nearest EQH/EQL wicks (${windowLabel}, ≤ $${config.monitors.eqhEqlTolerance.toFixed(2)})\n\n⚠️ ${failed.join('\n')}`
+          : `Nearest EQH/EQL wicks (${windowLabel}, ≤ $${config.monitors.eqhEqlTolerance.toFixed(2)})`,
+      )
       .addFields(sections)
-      .setFooter({ text: 'Yahoo Finance • Use /flow for full detail per ticker' })
+      .setFooter({ text: 'Yahoo Finance • Change lookback in /watchlist → Lookback' })
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });

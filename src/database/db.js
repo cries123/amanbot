@@ -78,6 +78,9 @@ export async function initDatabase() {
     ALTER TABLE user_alert_prefs ADD COLUMN IF NOT EXISTS delivery_mode VARCHAR(16) NOT NULL DEFAULT 'dm';
     ALTER TABLE user_alert_prefs ADD COLUMN IF NOT EXISTS thread_id VARCHAR(32);
     ALTER TABLE user_alert_prefs ADD COLUMN IF NOT EXISTS timezone VARCHAR(64) NOT NULL DEFAULT 'America/New_York';
+    ALTER TABLE user_alert_prefs ADD COLUMN IF NOT EXISTS lookback_5m INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE user_alert_prefs ADD COLUMN IF NOT EXISTS lookback_1h INTEGER NOT NULL DEFAULT 7;
+    ALTER TABLE user_alert_prefs ADD COLUMN IF NOT EXISTS lookback_4h INTEGER NOT NULL DEFAULT 14;
   `);
 
   console.log('[db] Schema ready');

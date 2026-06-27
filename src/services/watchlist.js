@@ -1,6 +1,12 @@
 import { getPool, query } from '../database/db.js';
 import { config } from '../config.js';
 import { DEFAULT_TIMEZONE, isValidTimezone } from '../utils/time.js';
+import {
+  DEFAULT_LOOKBACK_DAYS,
+  clampLookbackDays,
+  defaultLookbackSettings,
+  isValidTimeframe,
+} from '../utils/lookback.js';
 
 const memoryWatchlists = new Map();
 const memoryAlertPrefs = new Map();
@@ -23,6 +29,7 @@ const DEFAULT_SETTINGS = {
   volume: true,
   deliveryMode: 'dm',
   timezone: DEFAULT_TIMEZONE,
+  lookbackDays: defaultLookbackSettings(),
 };
 
 export function signalToAlertType(signal) {
@@ -143,8 +150,8 @@ async function saveUserSettings(userId, settings) {
   const db = getPool();
   if (db) {
     await query(
-      `INSERT INTO user_alert_prefs (user_id, eqh, eql, fvg, volume, delivery_mode, thread_id, timezone)
-       VALUES ($1, $2, $3, $4, $5, $6, NULL, $7)
+      `INSERT INTO user_alert_prefs (user_id, eqh, eql, fvg, volume, delivery_mode, thread_id, timezone, lookback_5m, lookback_1h, lookback_4h)
+       VALUES ($1, $2, $3, $4, $5, $6, NULL, $7, $8, $9, $10)
        ON CONFLICT (user_id)
        DO UPDATE SET
          eqh = EXCLUDED.eqh,
@@ -153,8 +160,22 @@ async function saveUserSettings(userId, settings) {
          volume = EXCLUDED.volume,
          delivery_mode = EXCLUDED.delivery_mode,
          thread_id = NULL,
-         timezone = EXCLUDED.timezone`,
-      [userId, settings.eqh, settings.eql, settings.fvg, settings.volume, settings.deliveryMode, settings.timezone],
+         timezone = EXCLUDED.timezone,
+         lookback_5m = EXCLUDED.lookback_5m,
+         lookback_1h = EXCLUDED.lookback_1h,
+         lookback_4h = EXCLUDED.lookback_4h`,
+      [
+        userId,
+        settings.eqh,
+        settings.eql,
+        settings.fvg,
+        settings.volume,
+        settings.deliveryMode,
+        settings.timezone,
+        settings.lookbackDays['5m'],
+        settings.lookbackDays['1h'],
+        settings.lookbackDays['4h'],
+      ],
     );
     return settings;
   }
@@ -164,7 +185,7 @@ async function saveUserSettings(userId, settings) {
 }
 
 function rowToSettings(row) {
-  if (!row) return { ...DEFAULT_SETTINGS };
+  if (!row) return { ...DEFAULT_SETTINGS, lookbackDays: defaultLookbackSettings() };
   const mode = row.delivery_mode === 'thread' ? 'channel' : (row.delivery_mode ?? 'dm');
   return {
     eqh: row.eqh,
@@ -173,6 +194,11 @@ function rowToSettings(row) {
     volume: row.volume,
     deliveryMode: DELIVERY_MODES.includes(mode) ? mode : 'dm',
     timezone: isValidTimezone(row.timezone) ? row.timezone : DEFAULT_TIMEZONE,
+    lookbackDays: {
+      '5m': row.lookback_5m ?? DEFAULT_LOOKBACK_DAYS['5m'],
+      '1h': row.lookback_1h ?? DEFAULT_LOOKBACK_DAYS['1h'],
+      '4h': row.lookback_4h ?? DEFAULT_LOOKBACK_DAYS['4h'],
+    },
   };
 }
 
@@ -180,14 +206,36 @@ export async function getUserSettings(userId) {
   const db = getPool();
   if (db) {
     const { rows } = await query(
-      'SELECT eqh, eql, fvg, volume, delivery_mode, thread_id, timezone FROM user_alert_prefs WHERE user_id = $1',
+      'SELECT eqh, eql, fvg, volume, delivery_mode, thread_id, timezone, lookback_5m, lookback_1h, lookback_4h FROM user_alert_prefs WHERE user_id = $1',
       [userId],
     );
-    if (!rows.length) return { ...DEFAULT_SETTINGS };
+    if (!rows.length) return { ...DEFAULT_SETTINGS, lookbackDays: defaultLookbackSettings() };
     return rowToSettings(rows[0]);
   }
 
-  return { ...(memoryAlertPrefs.get(userId) ?? DEFAULT_SETTINGS) };
+  const stored = memoryAlertPrefs.get(userId);
+  if (!stored) return { ...DEFAULT_SETTINGS, lookbackDays: defaultLookbackSettings() };
+  return {
+    ...DEFAULT_SETTINGS,
+    ...stored,
+    lookbackDays: { ...defaultLookbackSettings(), ...stored.lookbackDays },
+  };
+}
+
+export async function getLookbackDays(userId, timeframe) {
+  const settings = await getUserSettings(userId);
+  return settings.lookbackDays?.[timeframe] ?? DEFAULT_LOOKBACK_DAYS[timeframe] ?? 7;
+}
+
+export async function setLookbackDays(userId, timeframe, days) {
+  if (!isValidTimeframe(timeframe)) {
+    throw new Error('Invalid timeframe. Use 5m, 1h, or 4h.');
+  }
+
+  const normalized = clampLookbackDays(timeframe, days);
+  const settings = await getUserSettings(userId);
+  settings.lookbackDays = { ...settings.lookbackDays, [timeframe]: normalized };
+  return saveUserSettings(userId, settings);
 }
 
 export async function getUserAlertPrefs(userId) {

@@ -17,8 +17,10 @@ import {
   activateDmDelivery,
   activateChannelDelivery,
   setUserTimezone,
+  setLookbackDays,
   TIMEZONE_OPTIONS,
 } from '../../services/watchlist.js';
+import { LOOKBACK_PRESETS, formatLookbackLabel } from '../../utils/lookback.js';
 import { config } from '../../config.js';
 import { hasDatabaseUrl } from '../../database/db.js';
 import { formatTimeInZone } from '../../utils/time.js';
@@ -44,6 +46,7 @@ function overviewRow(active = 'home') {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('wl:home').setLabel('Overview').setStyle(active === 'home' ? ButtonStyle.Primary : ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wl:settings').setLabel('Settings').setStyle(active === 'settings' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('wl:lookback').setLabel('Lookback').setStyle(active === 'lookback' ? ButtonStyle.Primary : ButtonStyle.Secondary),
   );
 }
 
@@ -100,6 +103,36 @@ function formatAlertTypes(settings) {
       return `${on ? '✅' : '❌'} **${name}** — ${desc}`;
     })
     .join('\n');
+}
+
+function formatLookbackSettings(settings) {
+  return Object.entries(LOOKBACK_PRESETS).map(([tf]) => {
+    const days = settings.lookbackDays?.[tf] ?? 7;
+    return `**${tf}** — ${formatLookbackLabel(days, tf)} (\`${days}d\`)`;
+  }).join('\n');
+}
+
+function lookbackPresetRows(settings, timeframe) {
+  const presets = LOOKBACK_PRESETS[timeframe] ?? [];
+  const current = settings.lookbackDays?.[timeframe];
+  const rows = [];
+
+  for (let i = 0; i < presets.length; i += 5) {
+    const chunk = presets.slice(i, i + 5);
+    rows.push(new ActionRowBuilder().addComponents(
+      ...chunk.map(({ days, label }) =>
+        new ButtonBuilder()
+          .setCustomId(`wl:lb:${timeframe}:${days}`)
+          .setLabel(`${label}${current === days ? ' ✓' : ''}`)
+          .setStyle(current === days ? ButtonStyle.Success : ButtonStyle.Secondary),
+      ),
+      ...(i + 5 >= presets.length
+        ? [new ButtonBuilder().setCustomId(`wl:lbcustom:${timeframe}`).setLabel('Custom').setStyle(ButtonStyle.Secondary)]
+        : []),
+    ));
+  }
+
+  return rows;
 }
 
 function formatDeliveryMode(settings) {
@@ -166,6 +199,11 @@ export async function buildWatchlistPayload(page, userId) {
     return { embeds: [embed], components };
   }
 
+  if (page === 'lookback' || page.startsWith('lookback:')) {
+    const activeTf = page.includes(':') ? page.split(':')[1] : '1h';
+    return buildLookbackPage(userId, activeTf);
+  }
+
   if (page === 'delivery') {
     components.push(deliveryToggleRow(settings));
 
@@ -190,6 +228,7 @@ export async function buildWatchlistPayload(page, userId) {
       { name: 'Alert types', value: formatAlertTypes(settings), inline: false },
       { name: 'Delivery', value: formatDeliveryMode(settings), inline: false },
       { name: 'Timezone', value: formatTimezone(settings), inline: false },
+      { name: 'Lookback', value: formatLookbackSettings(settings), inline: false },
       { name: 'DMs disabled?', value: `If you don't allow DMs from server members, go to **Delivery** and pick **Alerts Channel** instead of **DM**.`, inline: false },
       { name: 'Your tickers', value: tickers.length ? tickers.join(', ') : '_None yet — click Add_', inline: false },
       { name: 'Updates', value: 'The same alert embed updates when a level is **swept** or **invalidated**.', inline: false },
@@ -209,6 +248,35 @@ export async function buildWatchlistPayload(page, userId) {
     .setDescription('Personal ticker alerts for setups on your watchlist.')
     .addFields(fields)
     .setFooter({ text: 'Use the buttons below to configure everything' });
+
+  return { embeds: [embed], components };
+}
+
+async function buildLookbackPage(userId, activeTf = '1h') {
+  const settings = await getUserSettings(userId);
+  const components = [navRow('lookback'), overviewRow('lookback')];
+
+  components.push(
+    new ActionRowBuilder().addComponents(
+      ...['5m', '1h', '4h'].map((tf) =>
+        new ButtonBuilder()
+          .setCustomId(`wl:lbview:${tf}`)
+          .setLabel(tf)
+          .setStyle(tf === activeTf ? ButtonStyle.Primary : ButtonStyle.Secondary),
+      ),
+    ),
+  );
+  components.push(...lookbackPresetRows(settings, activeTf));
+
+  const embed = new EmbedBuilder()
+    .setTitle('Chart Lookback')
+    .setColor(0xe67e22)
+    .setDescription('How far back `/flow` and `/levels` scan for EQH/EQL on each timeframe.')
+    .addFields(
+      { name: 'Your lookback', value: formatLookbackSettings(settings), inline: false },
+      { name: 'Editing', value: `Setting **${activeTf}** — pick a preset or **Custom** for exact days.`, inline: false },
+    )
+    .setFooter({ text: 'Used by /flow and /levels • Alerts still fire on live bar closes' });
 
   return { embeds: [embed], components };
 }
@@ -273,6 +341,23 @@ export function buildTimezoneModal() {
     );
 }
 
+export function buildLookbackModal(timeframe) {
+  return new ModalBuilder()
+    .setCustomId(`wl:modal:lookback:${timeframe}`)
+    .setTitle(`Custom Lookback — ${timeframe}`)
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('days')
+          .setLabel('Days to look back')
+          .setPlaceholder(timeframe === '5m' ? '1–10' : timeframe === '1h' ? '1–90' : '1–180')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(3),
+      ),
+    );
+}
+
 export async function handleWatchlistButton(interaction) {
   const id = interaction.customId;
 
@@ -325,16 +410,36 @@ export async function handleWatchlistButton(interaction) {
     return;
   }
 
+  if (id.startsWith('wl:lb:')) {
+    const [, , tf, days] = id.split(':');
+    await setLookbackDays(interaction.user.id, tf, Number(days));
+    const payload = await buildLookbackPage(interaction.user.id, tf);
+    await interaction.update(payload);
+    return;
+  }
+
+  if (id.startsWith('wl:lbview:')) {
+    const tf = id.replace('wl:lbview:', '');
+    const payload = await buildLookbackPage(interaction.user.id, tf);
+    await interaction.update(payload);
+    return;
+  }
+
+  if (id.startsWith('wl:lbcustom:')) {
+    const tf = id.replace('wl:lbcustom:', '');
+    await interaction.showModal(buildLookbackModal(tf));
+    return;
+  }
+
   const page = id.replace('wl:', '');
   const payload = await buildWatchlistPayload(page, interaction.user.id);
   await interaction.update(payload);
 }
 
 export async function handleWatchlistModal(interaction) {
-  const ticker = interaction.fields.getTextInputValue('ticker');
-
   try {
     if (interaction.customId === 'wl:modal:add') {
+      const ticker = interaction.fields.getTextInputValue('ticker');
       const added = await addToWatchlist(interaction.user.id, ticker);
       const payload = await buildWatchlistPayload('list', interaction.user.id);
       await interaction.reply({
@@ -346,6 +451,7 @@ export async function handleWatchlistModal(interaction) {
     }
 
     if (interaction.customId === 'wl:modal:remove') {
+      const ticker = interaction.fields.getTextInputValue('ticker');
       const removed = await removeFromWatchlist(interaction.user.id, ticker);
       const payload = await buildWatchlistPayload('list', interaction.user.id);
       await interaction.reply({
@@ -362,6 +468,19 @@ export async function handleWatchlistModal(interaction) {
       const payload = await buildWatchlistPayload('settings', interaction.user.id);
       await interaction.reply({
         content: `Timezone set to **${timezone}**.`,
+        ...payload,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (interaction.customId.startsWith('wl:modal:lookback:')) {
+      const timeframe = interaction.customId.replace('wl:modal:lookback:', '');
+      const days = Number(interaction.fields.getTextInputValue('days').trim());
+      await setLookbackDays(interaction.user.id, timeframe, days);
+      const payload = await buildLookbackPage(interaction.user.id, timeframe);
+      await interaction.reply({
+        content: `**${timeframe}** lookback set to **${days} days**.`,
         ...payload,
         ephemeral: true,
       });
