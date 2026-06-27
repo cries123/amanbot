@@ -32,6 +32,7 @@ export const config = {
     welcome: optionalEnv('CHANNEL_WELCOME'),
     marketAlerts: optionalEnv('CHANNEL_MARKET_ALERTS'),
     adminHealth: optionalEnv('CHANNEL_ADMIN_HEALTH'),
+    watchlistAlerts: optionalEnv('CHANNEL_WATCHLIST_ALERTS'),
   },
   apis: {
     chartImg: optionalEnv('CHART_IMG_API_KEY'),

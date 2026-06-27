@@ -5,8 +5,16 @@ const memoryWatchlists = new Map();
 const memoryAlertPrefs = new Map();
 
 export const ALERT_TYPES = ['eqh', 'eql', 'fvg', 'volume'];
+export const DELIVERY_MODES = ['dm', 'thread'];
 
-const DEFAULT_PREFS = { eqh: true, eql: true, fvg: true, volume: true };
+const DEFAULT_SETTINGS = {
+  eqh: true,
+  eql: true,
+  fvg: true,
+  volume: true,
+  deliveryMode: 'dm',
+  threadId: null,
+};
 
 export function signalToAlertType(signal) {
   const s = signal.structure ?? signal.type ?? '';
@@ -122,23 +130,69 @@ export async function getAllWatchedTickers() {
   return [...base];
 }
 
-export async function getUserAlertPrefs(userId) {
+async function saveUserSettings(userId, settings) {
+  const db = getPool();
+  if (db) {
+    await query(
+      `INSERT INTO user_alert_prefs (user_id, eqh, eql, fvg, volume, delivery_mode, thread_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (user_id)
+       DO UPDATE SET
+         eqh = EXCLUDED.eqh,
+         eql = EXCLUDED.eql,
+         fvg = EXCLUDED.fvg,
+         volume = EXCLUDED.volume,
+         delivery_mode = EXCLUDED.delivery_mode,
+         thread_id = EXCLUDED.thread_id`,
+      [userId, settings.eqh, settings.eql, settings.fvg, settings.volume, settings.deliveryMode, settings.threadId],
+    );
+    return settings;
+  }
+
+  memoryAlertPrefs.set(userId, { ...settings });
+  return settings;
+}
+
+function rowToSettings(row) {
+  if (!row) return { ...DEFAULT_SETTINGS };
+  return {
+    eqh: row.eqh,
+    eql: row.eql,
+    fvg: row.fvg,
+    volume: row.volume,
+    deliveryMode: row.delivery_mode ?? 'dm',
+    threadId: row.thread_id ?? null,
+  };
+}
+
+export async function getUserSettings(userId) {
   const db = getPool();
   if (db) {
     const { rows } = await query(
-      'SELECT eqh, eql, fvg, volume FROM user_alert_prefs WHERE user_id = $1',
+      'SELECT eqh, eql, fvg, volume, delivery_mode, thread_id FROM user_alert_prefs WHERE user_id = $1',
       [userId],
     );
-    if (!rows.length) return { ...DEFAULT_PREFS };
-    return {
-      eqh: rows[0].eqh,
-      eql: rows[0].eql,
-      fvg: rows[0].fvg,
-      volume: rows[0].volume,
-    };
+    if (!rows.length) return { ...DEFAULT_SETTINGS };
+    return rowToSettings(rows[0]);
   }
 
-  return { ...(memoryAlertPrefs.get(userId) ?? DEFAULT_PREFS) };
+  return { ...(memoryAlertPrefs.get(userId) ?? DEFAULT_SETTINGS) };
+}
+
+export async function getUserAlertPrefs(userId) {
+  const settings = await getUserSettings(userId);
+  return { eqh: settings.eqh, eql: settings.eql, fvg: settings.fvg, volume: settings.volume };
+}
+
+export async function setDeliveryMode(userId, mode, threadId = null) {
+  if (!DELIVERY_MODES.includes(mode)) {
+    throw new Error('Invalid delivery mode.');
+  }
+
+  const settings = await getUserSettings(userId);
+  settings.deliveryMode = mode;
+  settings.threadId = mode === 'thread' ? threadId : null;
+  return saveUserSettings(userId, settings);
 }
 
 export async function toggleAlertPref(userId, alertType) {
@@ -146,29 +200,15 @@ export async function toggleAlertPref(userId, alertType) {
     throw new Error('Invalid alert type.');
   }
 
-  const prefs = await getUserAlertPrefs(userId);
-  prefs[alertType] = !prefs[alertType];
-
-  const db = getPool();
-  if (db) {
-    await query(
-      `INSERT INTO user_alert_prefs (user_id, eqh, eql, fvg, volume)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (user_id)
-       DO UPDATE SET eqh = EXCLUDED.eqh, eql = EXCLUDED.eql, fvg = EXCLUDED.fvg, volume = EXCLUDED.volume`,
-      [userId, prefs.eqh, prefs.eql, prefs.fvg, prefs.volume],
-    );
-    return prefs;
-  }
-
-  memoryAlertPrefs.set(userId, prefs);
-  return prefs;
+  const settings = await getUserSettings(userId);
+  settings[alertType] = !settings[alertType];
+  return saveUserSettings(userId, settings);
 }
 
 export async function userWantsAlert(userId, alertType) {
   if (!alertType) return true;
-  const prefs = await getUserAlertPrefs(userId);
-  return Boolean(prefs[alertType]);
+  const settings = await getUserSettings(userId);
+  return Boolean(settings[alertType]);
 }
 
 export async function getWatchersForTickerAlert(ticker, alertType) {
