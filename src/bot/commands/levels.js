@@ -3,6 +3,12 @@ import { config } from '../../config.js';
 import { scanTickerWicks } from '../../services/smcScanner.js';
 import { getUserWatchlist } from '../../services/watchlist.js';
 
+const LEVELS_LOOKBACK_DAYS = {
+  '5m': 1,
+  '1h': 7,
+  '4h': 30,
+};
+
 export const data = new SlashCommandBuilder()
   .setName('levels')
   .setDescription('EQH/EQL levels for tickers on your watchlist')
@@ -37,7 +43,14 @@ export async function execute(interaction) {
 
     for (const ticker of tickers) {
       try {
-        const result = await scanTickerWicks(ticker, { timeframe, live: true, sortMode: 'level' });
+        const lookbackDays = LEVELS_LOOKBACK_DAYS[timeframe] ?? 7;
+        const result = await scanTickerWicks(ticker, {
+          timeframe,
+          live: true,
+          sortMode: 'level',
+          scanDays: lookbackDays,
+          sessionOnly: lookbackDays <= 1,
+        });
         const eql = result.eql.slice(0, 2).map((l) => `$${l.level.toFixed(2)}`).join(', ') || '—';
         const eqh = result.eqh.slice(0, 2).map((l) => `$${l.level.toFixed(2)}`).join(', ') || '—';
 

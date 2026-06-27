@@ -61,7 +61,7 @@ export const config = {
       .filter(Boolean),
     ivLowThreshold: parseNumber('IV_LOW_THRESHOLD', 10),
     ivHighThreshold: parseNumber('IV_HIGH_THRESHOLD', 90),
-    eqhEqlTolerance: parseNumber('EQH_EQL_TOLERANCE', 0.05),
+    eqhEqlTolerance: parseNumber('EQH_EQL_TOLERANCE', 0.10),
     eqhEqlSessionBand: parseNumber('EQH_EQL_SESSION_BAND', 0.4),
     fvgMinGapPct: parseNumber('FVG_MIN_GAP_PCT', 0.02),
     volumeSpikeRatio: parseNumber('VOLUME_SPIKE_RATIO', 2.5),

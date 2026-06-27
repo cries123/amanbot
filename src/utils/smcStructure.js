@@ -363,7 +363,10 @@ function collectSwingWickClusters(candles, scanStart, scanEnd, structure, {
     ? findSwingHighs(slice, lookback).map((p) => ({ ...p, index: p.index + scanStart }))
     : findSwingLows(slice, lookback).map((p) => ({ ...p, index: p.index + scanStart }));
 
-  return clusterWickLevels(swings, toleranceDollars, minBarSeparation).map(enrichClusterTimes);
+  return mergeClusters(
+    clusterWickLevels(swings, toleranceDollars, minBarSeparation),
+    findPairClusters(candles, scanStart, scanEnd, structure, toleranceDollars, minBarSeparation),
+  ).map(enrichClusterTimes);
 }
 
 function sortClustersByFormation(clusters) {

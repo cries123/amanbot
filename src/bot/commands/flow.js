@@ -13,13 +13,13 @@ const TIMEFRAME_CHOICES = [
 const FLOW_LOOKBACK_DAYS = {
   '5m': 1,
   '1h': 7,
-  '4h': 14,
+  '4h': 30,
 };
 
 const FLOW_WINDOW_LABEL = {
   '5m': 'today (regular session)',
   '1h': 'past 7 days',
-  '4h': 'past 14 days',
+  '4h': 'past 30 days',
 };
 
 const MAX_EMBEDS = 10;
