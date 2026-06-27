@@ -63,6 +63,14 @@ export async function initDatabase() {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE (alert_key, user_id)
     );
+
+    CREATE TABLE IF NOT EXISTS user_alert_prefs (
+      user_id VARCHAR(32) PRIMARY KEY,
+      eqh BOOLEAN NOT NULL DEFAULT TRUE,
+      eql BOOLEAN NOT NULL DEFAULT TRUE,
+      fvg BOOLEAN NOT NULL DEFAULT TRUE,
+      volume BOOLEAN NOT NULL DEFAULT TRUE
+    );
   `);
 
   console.log('[db] Schema ready');

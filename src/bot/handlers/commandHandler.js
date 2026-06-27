@@ -47,5 +47,32 @@ export async function handleInteraction(interaction, commands) {
     const { handleHelpButton } = await import('../commands/help.js');
     const payload = handleHelpButton(interaction.customId);
     await interaction.update(payload);
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith('wl:')) {
+    try {
+      const { handleWatchlistButton } = await import('../commands/watchlist.js');
+      await handleWatchlistButton(interaction);
+    } catch (err) {
+      console.error('[watchlist:button]', err);
+      const reply = { content: err.message ?? 'Something went wrong.', ephemeral: true };
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(reply);
+      } else if (interaction.isRepliable()) {
+        await interaction.reply(reply);
+      }
+    }
+    return;
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId.startsWith('wl:modal:')) {
+    try {
+      const { handleWatchlistModal } = await import('../commands/watchlist.js');
+      await handleWatchlistModal(interaction);
+    } catch (err) {
+      console.error('[watchlist:modal]', err);
+      await interaction.reply({ content: err.message ?? 'Something went wrong.', ephemeral: true });
+    }
   }
 }

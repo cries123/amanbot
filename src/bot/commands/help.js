@@ -6,7 +6,7 @@ const PAGES = {
     description: 'Your trading alert assistant. Use the buttons below to learn about each feature.',
     color: 0xd4af37,
     fields: [
-      { name: 'Quick Start', value: '1. `/watchlist add ticker:SPY`\n2. Enable DMs from server members\n3. Get alerts when setups form', inline: false },
+      { name: 'Quick Start', value: '1. `/watchlist` → click **Add**\n2. Enable DMs from server members\n3. Get alerts when setups form', inline: false },
     ],
   },
   watchlist: {
@@ -14,10 +14,8 @@ const PAGES = {
     description: 'Personal ticker alerts delivered to your DMs.',
     color: 0x3498db,
     fields: [
-      { name: '/watchlist add', value: 'Add a ticker (up to 15)', inline: false },
-      { name: '/watchlist remove', value: 'Remove a ticker', inline: false },
-      { name: '/watchlist list', value: 'View your watchlist', inline: false },
-      { name: 'Alert types', value: '**EQH** — equal high wicks\n**EQL** — equal low wicks\n**FVG** — fair value gaps\n**Volume** — unusual volume spikes', inline: false },
+      { name: 'Setup', value: 'Run `/watchlist` — use **Add**, **Remove**, **List**, and **Alert Types** buttons', inline: false },
+      { name: 'Alert types', value: '**EQH** — equal high wicks\n**EQL** — equal low wicks\n**FVG** — fair value gaps\n**Volume** — unusual volume spikes\nToggle any off in **Alert Types**', inline: false },
       { name: 'Updates', value: 'The same DM embed updates when a level is **swept** or **invalidated**.', inline: false },
     ],
   },

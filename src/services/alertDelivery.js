@@ -1,6 +1,6 @@
 import { buildWatchlistAlertEmbed } from '../utils/embeds.js';
 import { editChannelMessage } from '../bot/client.js';
-import { getWatchersForTicker } from './watchlist.js';
+import { getWatchersForTickerAlert, signalToAlertType } from './watchlist.js';
 import { buildAlertKey, saveUserAlert, getAlertsForKey, updateAlertStatus } from './alertTracker.js';
 
 const DEFAULT_TICKERS = new Set(['SPY', 'SPX', 'QQQ']);
@@ -31,7 +31,7 @@ export async function deliverWatchlistAlerts(client, { ticker, timeframe, signal
   const isNew = !signal.swept && !signal.invalidated;
   if (!isNew) return { alertKey, dms: 0, updated: false };
 
-  const watchers = await getWatchersForTicker(ticker);
+  const watchers = await getWatchersForTickerAlert(ticker, signalToAlertType(signal));
   let dms = 0;
 
   for (const userId of watchers) {

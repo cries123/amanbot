@@ -2,6 +2,20 @@ import { getPool, query } from '../database/db.js';
 import { config } from '../config.js';
 
 const memoryWatchlists = new Map();
+const memoryAlertPrefs = new Map();
+
+export const ALERT_TYPES = ['eqh', 'eql', 'fvg', 'volume'];
+
+const DEFAULT_PREFS = { eqh: true, eql: true, fvg: true, volume: true };
+
+export function signalToAlertType(signal) {
+  const s = signal.structure ?? signal.type ?? '';
+  if (s === 'EQH') return 'eqh';
+  if (s === 'EQL') return 'eql';
+  if (s === 'FVG' || s === 'BULL_FVG' || s === 'BEAR_FVG') return 'fvg';
+  if (s === 'VOLUME' || s === 'VOLUME_SPIKE') return 'volume';
+  return null;
+}
 
 function normalizeTicker(ticker) {
   const upper = ticker?.toUpperCase().trim();
@@ -106,4 +120,66 @@ export async function getAllWatchedTickers() {
     for (const t of tickers) base.add(t);
   }
   return [...base];
+}
+
+export async function getUserAlertPrefs(userId) {
+  const db = getPool();
+  if (db) {
+    const { rows } = await query(
+      'SELECT eqh, eql, fvg, volume FROM user_alert_prefs WHERE user_id = $1',
+      [userId],
+    );
+    if (!rows.length) return { ...DEFAULT_PREFS };
+    return {
+      eqh: rows[0].eqh,
+      eql: rows[0].eql,
+      fvg: rows[0].fvg,
+      volume: rows[0].volume,
+    };
+  }
+
+  return { ...(memoryAlertPrefs.get(userId) ?? DEFAULT_PREFS) };
+}
+
+export async function toggleAlertPref(userId, alertType) {
+  if (!ALERT_TYPES.includes(alertType)) {
+    throw new Error('Invalid alert type.');
+  }
+
+  const prefs = await getUserAlertPrefs(userId);
+  prefs[alertType] = !prefs[alertType];
+
+  const db = getPool();
+  if (db) {
+    await query(
+      `INSERT INTO user_alert_prefs (user_id, eqh, eql, fvg, volume)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id)
+       DO UPDATE SET eqh = EXCLUDED.eqh, eql = EXCLUDED.eql, fvg = EXCLUDED.fvg, volume = EXCLUDED.volume`,
+      [userId, prefs.eqh, prefs.eql, prefs.fvg, prefs.volume],
+    );
+    return prefs;
+  }
+
+  memoryAlertPrefs.set(userId, prefs);
+  return prefs;
+}
+
+export async function userWantsAlert(userId, alertType) {
+  if (!alertType) return true;
+  const prefs = await getUserAlertPrefs(userId);
+  return Boolean(prefs[alertType]);
+}
+
+export async function getWatchersForTickerAlert(ticker, alertType) {
+  const watchers = await getWatchersForTicker(ticker);
+  const filtered = [];
+
+  for (const userId of watchers) {
+    if (await userWantsAlert(userId, alertType)) {
+      filtered.push(userId);
+    }
+  }
+
+  return filtered;
 }
