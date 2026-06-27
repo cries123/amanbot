@@ -235,12 +235,9 @@ export async function handleWatchlistButton(interaction) {
       return;
     }
 
-    const thread = await ensureUserAlertThread(interaction.client, interaction.guild, interaction.user);
+    await ensureUserAlertThread(interaction.client, interaction.guild, interaction.user);
     const payload = await buildWatchlistPayload('delivery', interaction.user.id);
-    await interaction.update({
-      ...payload,
-      content: `Delivery set to **Private Thread** — alerts will post in ${thread}.`,
-    });
+    await interaction.update(payload);
     return;
   }
 
