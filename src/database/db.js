@@ -82,6 +82,14 @@ export async function initDatabase() {
   return true;
 }
 
+export function isDatabaseConnected() {
+  return Boolean(config.database.url && pool);
+}
+
+export function hasDatabaseUrl() {
+  return Boolean(config.database.url);
+}
+
 export async function query(text, params = []) {
   const db = getPool();
   if (!db) {

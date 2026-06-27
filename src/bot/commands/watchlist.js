@@ -18,6 +18,7 @@ import {
   activateChannelDelivery,
 } from '../../services/watchlist.js';
 import { config } from '../../config.js';
+import { hasDatabaseUrl } from '../../database/db.js';
 
 const ALERT_LABELS = {
   eqh: { name: 'EQH', desc: 'Equal high wicks' },
@@ -143,18 +144,28 @@ export async function buildWatchlistPayload(page, userId) {
     return { embeds: [embed], components };
   }
 
-  const embed = new EmbedBuilder()
-    .setTitle('Watchlist & Alerts')
-    .setColor(0x3498db)
-    .setDescription('Personal ticker alerts for setups on your watchlist.')
-    .addFields(
+  const fields = [
       { name: 'Add / Remove', value: 'Use **Add** or **Remove** to manage tickers (up to 15)', inline: false },
       { name: 'Alert types', value: formatAlertTypes(settings), inline: false },
       { name: 'Delivery', value: formatDeliveryMode(settings), inline: false },
       { name: 'DMs disabled?', value: `If you don't allow DMs from server members, go to **Delivery** and pick **Alerts Channel** instead of **DM**.`, inline: false },
       { name: 'Your tickers', value: tickers.length ? tickers.join(', ') : '_None yet — click Add_', inline: false },
       { name: 'Updates', value: 'The same alert embed updates when a level is **swept** or **invalidated**.', inline: false },
-    )
+    ];
+
+  if (!hasDatabaseUrl()) {
+    fields.unshift({
+      name: '⚠️ Watchlist won\'t save',
+      value: '`DATABASE_URL` is missing from `.env`. Tickers reset every time the bot restarts. Add your Neon connection string.',
+      inline: false,
+    });
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('Watchlist & Alerts')
+    .setColor(0x3498db)
+    .setDescription('Personal ticker alerts for setups on your watchlist.')
+    .addFields(fields)
     .setFooter({ text: 'Use the buttons below to configure everything' });
 
   return { embeds: [embed], components };
