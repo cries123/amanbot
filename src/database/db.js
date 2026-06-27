@@ -18,7 +18,7 @@ export function getPool() {
 export async function initDatabase() {
   const db = getPool();
   if (!db) {
-    console.warn('[db] DATABASE_URL not set — IV history and economic dedup disabled');
+    console.warn('[db] DATABASE_URL not set — using in-memory storage (watchlists reset on restart)');
     return false;
   }
 
@@ -44,6 +44,24 @@ export async function initDatabase() {
       moderator_id VARCHAR(32) NOT NULL,
       reason TEXT,
       warned_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS user_watchlists (
+      user_id VARCHAR(32) NOT NULL,
+      ticker VARCHAR(16) NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, ticker)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_alerts (
+      id SERIAL PRIMARY KEY,
+      alert_key VARCHAR(160) NOT NULL,
+      user_id VARCHAR(32) NOT NULL,
+      dm_channel_id VARCHAR(32) NOT NULL,
+      message_id VARCHAR(32) NOT NULL,
+      status VARCHAR(16) NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (alert_key, user_id)
     );
   `);
 

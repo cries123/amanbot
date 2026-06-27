@@ -25,20 +25,27 @@ export async function loadCommands() {
 }
 
 export async function handleInteraction(interaction, commands) {
-  if (!interaction.isChatInputCommand()) return;
+  if (interaction.isChatInputCommand()) {
+    const command = commands.get(interaction.commandName);
+    if (!command) return;
 
-  const command = commands.get(interaction.commandName);
-  if (!command) return;
-
-  try {
-    await command.execute(interaction);
-  } catch (err) {
-    console.error(`[command:${interaction.commandName}]`, err);
-    const reply = { content: 'An error occurred while running this command.', ephemeral: true };
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(reply);
-    } else {
-      await interaction.reply(reply);
+    try {
+      await command.execute(interaction);
+    } catch (err) {
+      console.error(`[command:${interaction.commandName}]`, err);
+      const reply = { content: 'An error occurred while running this command.', ephemeral: true };
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(reply);
+      } else {
+        await interaction.reply(reply);
+      }
     }
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith('help:')) {
+    const { handleHelpButton } = await import('../commands/help.js');
+    const payload = handleHelpButton(interaction.customId);
+    await interaction.update(payload);
   }
 }

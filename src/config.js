@@ -62,6 +62,7 @@ export const config = {
     eqhEqlTolerance: parseNumber('EQH_EQL_TOLERANCE', 0.05),
     eqhEqlSessionBand: parseNumber('EQH_EQL_SESSION_BAND', 0.4),
     fvgMinGapPct: parseNumber('FVG_MIN_GAP_PCT', 0.02),
+    volumeSpikeRatio: parseNumber('VOLUME_SPIKE_RATIO', 2.5),
     smcTickers: ['SPY', 'SPX', 'QQQ'],
     smcTimeframes: optionalEnv('SMC_TIMEFRAMES', '5m,1h,4h')
       .split(',')
@@ -89,5 +90,8 @@ export const config = {
     newAccountMaxDays: parseNumber('NEW_ACCOUNT_MAX_DAYS', 7),
     warnThreshold: parseNumber('WARN_THRESHOLD', 3),
     warnAutoMuteHours: parseNumber('WARN_AUTO_MUTE_HOURS', 24),
+  },
+  watchlist: {
+    maxPerUser: parseNumber('WATCHLIST_MAX_PER_USER', 15),
   },
 };

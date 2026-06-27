@@ -52,6 +52,46 @@ export function buildWickLevelEmbed({ ticker, level, timeframe = '1h' }) {
       : (level.formationTime ? new Date(level.formationTime * 1000) : new Date()));
 }
 
+export function buildWatchlistAlertEmbed({ ticker, signal, timeframe = '5m' }) {
+  const swept = Boolean(signal.swept);
+  const invalidated = Boolean(signal.invalidated);
+  const isBull = signal.direction === 'bullish';
+  const structure = signal.structure ?? signal.type;
+
+  let title = `${ticker} — ${signal.setupType ?? structure}`;
+  if (swept) title += ' — Swept';
+  if (invalidated) title += ' — Invalidated';
+
+  let color = isBull ? 0x2ecc71 : 0xe74c3c;
+  if (structure === 'FVG') color = 0x3498db;
+  if (structure === 'VOLUME') color = 0x9b59b6;
+  if (swept || invalidated) color = 0x95a5a6;
+
+  const fields = [
+    { name: 'Type', value: structure, inline: true },
+    { name: 'Timeframe', value: `\`${timeframe}\``, inline: true },
+    { name: 'Status', value: invalidated ? '**Invalidated**' : (swept ? '**Swept**' : '**Active**'), inline: true },
+  ];
+
+  if (signal.zoneLow != null && signal.zoneHigh != null) {
+    fields.push({ name: 'Zone', value: `\`$${signal.zoneLow.toFixed(2)} – $${signal.zoneHigh.toFixed(2)}\``, inline: false });
+  }
+
+  if (signal.touches) fields.push({ name: 'Touches', value: String(signal.touches), inline: true });
+  if (signal.gapPct) fields.push({ name: 'Gap', value: `\`${signal.gapPct.toFixed(3)}%\``, inline: true });
+  if (signal.volRatio) fields.push({ name: 'Volume', value: `\`${signal.volRatio}x\` avg`, inline: true });
+  if (signal.price != null) fields.push({ name: 'Price', value: `\`$${signal.price.toFixed(2)}\``, inline: true });
+  if (signal.formationTime) fields.push({ name: 'Formed (EST)', value: formatEstTime(signal.formationTime), inline: true });
+  if (swept && signal.barTime) fields.push({ name: 'Swept (EST)', value: formatEstTime(signal.barTime), inline: true });
+
+  return new EmbedBuilder()
+    .setTitle(title)
+    .setColor(color)
+    .addFields(fields)
+    .setFooter({ text: `AmanBot Watchlist • Yahoo Finance • ${timeframe}` })
+    .setTimestamp(signal.barTime ? new Date(signal.barTime * 1000) : new Date());
+}
+
 export function buildSmcAlertEmbed({ ticker, signal, timeframe = '5m' }) {
   const isBullish = signal.direction === 'bullish';
   const color = isBullish ? BULL_COLOR : BEAR_COLOR;

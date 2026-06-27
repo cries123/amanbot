@@ -1,7 +1,7 @@
 import { initDatabase } from './database/db.js';
 import { createBot, sendToChannel } from './bot/client.js';
 import { createWebhookServer } from './webhooks/tradingview.js';
-import { startSmcScanner } from './monitors/smcScanner.js';
+import { startWatchlistScanner } from './monitors/watchlistScanner.js';
 import { startIvMonitor } from './monitors/ivMonitor.js';
 import { startEconomicCalendar } from './monitors/economicCalendar.js';
 import { startMarketSession } from './monitors/marketSession.js';
@@ -18,7 +18,7 @@ async function main() {
 
   await createWebhookServer(client, send);
 
-  startSmcScanner(client, send);
+  startWatchlistScanner(client, send);
   startIvMonitor(client, send);
   startEconomicCalendar(client, send);
   startMarketSession(client, send);
