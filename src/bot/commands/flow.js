@@ -38,7 +38,7 @@ export async function execute(interaction) {
   await interaction.deferReply();
 
   try {
-    const result = await scanTickerWicks(ticker, { timeframe, live: true });
+    const result = await scanTickerWicks(ticker, { timeframe, live: true, withSweepDetection: true });
     const embeds = [
       ...result.eql.map((level) => buildWickLevelEmbed({ ticker: result.label, level, timeframe })),
       ...result.eqh.map((level) => buildWickLevelEmbed({ ticker: result.label, level, timeframe })),
