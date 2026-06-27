@@ -27,8 +27,8 @@ const PAGES = {
     description: 'On-demand market tools.',
     color: 0x2ecc71,
     fields: [
-      { name: '/flow', value: 'Live EQH/EQL scan for SPY, SPX, QQQ', inline: true },
-      { name: '/levels', value: 'All tickers in one view', inline: true },
+      { name: '/flow', value: 'Live EQH/EQL scan for your watchlist tickers', inline: true },
+      { name: '/levels', value: 'EQH/EQL summary for your watchlist', inline: true },
       { name: '/quote', value: 'Quick price quote', inline: true },
       { name: '/earnings', value: 'Upcoming earnings date + estimates', inline: true },
       { name: '/news', value: 'Latest headlines (commands channel, only you see it)', inline: true },

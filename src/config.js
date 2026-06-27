@@ -65,7 +65,6 @@ export const config = {
     eqhEqlSessionBand: parseNumber('EQH_EQL_SESSION_BAND', 0.4),
     fvgMinGapPct: parseNumber('FVG_MIN_GAP_PCT', 0.02),
     volumeSpikeRatio: parseNumber('VOLUME_SPIKE_RATIO', 2.5),
-    smcTickers: ['SPY', 'SPX', 'QQQ'],
     smcTimeframes: optionalEnv('SMC_TIMEFRAMES', '5m,1h,4h')
       .split(',')
       .map((t) => t.trim())
