@@ -7,6 +7,9 @@ import { startEconomicCalendar } from './monitors/economicCalendar.js';
 import { startMarketSession } from './monitors/marketSession.js';
 import { startMorningBriefing } from './monitors/morningBriefing.js';
 import { startAdminHeartbeat } from './monitors/adminHeartbeat.js';
+import { startEarningsCalendar } from './monitors/earningsCalendar.js';
+import { startApiHealthMonitor } from './monitors/apiHealth.js';
+import { startEndOfDayRecap } from './monitors/endOfDayRecap.js';
 
 async function main() {
   console.log('[amanbot] Starting...');
@@ -24,6 +27,9 @@ async function main() {
   startMarketSession(client, send);
   startMorningBriefing(client, send);
   startAdminHeartbeat(client, send);
+  startEarningsCalendar(client, send);
+  startApiHealthMonitor(client);
+  startEndOfDayRecap(client, send);
 
   console.log('[amanbot] All modules loaded');
 }

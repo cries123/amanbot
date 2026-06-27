@@ -51,6 +51,21 @@ export async function handleInteraction(interaction, commands) {
     return;
   }
 
+  if (interaction.isButton() && interaction.customId.startsWith('modact:')) {
+    try {
+      const { handleModActionButton } = await import('../../utils/modActionButtons.js');
+      await handleModActionButton(interaction);
+    } catch (err) {
+      const message = err instanceof ModerationError ? err.message : 'Moderation action failed.';
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: message, ephemeral: true });
+      } else {
+        await interaction.reply({ content: message, ephemeral: true });
+      }
+    }
+    return;
+  }
+
   if (interaction.isButton() && interaction.customId.startsWith('mod:')) {
     try {
       const { handleModButton } = await import('../commands/mod.js');

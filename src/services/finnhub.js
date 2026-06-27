@@ -11,7 +11,7 @@ import { getStockCandles, getCandleSourceLabel } from './candles.js';
 
 const BASE = 'https://finnhub.io/api/v1';
 
-function finnhubGet(path, params = {}) {
+export function finnhubGet(path, params = {}) {
   if (!config.apis.finnhub) {
     throw new Error('FINNHUB_API_KEY is not configured');
   }

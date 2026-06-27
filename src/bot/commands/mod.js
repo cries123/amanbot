@@ -28,7 +28,7 @@ const PAGES = {
       { name: '/kick', value: 'Remove a member from the server.', inline: true },
       { name: '/mute', value: 'Timeout a member for a set duration.', inline: true },
       { name: '/purge', value: 'Bulk-delete messages in a channel.', inline: true },
-      { name: '/quote', value: 'Reply with a quoted message embed.', inline: true },
+      { name: '/status', value: 'Check bot health on demand (APIs, DB, uptime).', inline: true },
     ],
   },
   strikes: {
@@ -46,11 +46,13 @@ const PAGES = {
     description: 'Background protection — no command needed.',
     color: 0x9b59b6,
     fields: [
-      { name: 'Impersonation guard', value: 'Alerts mod log when a username/display name matches protected identities.', inline: false },
-      { name: 'Scam filter', value: 'Auto-deletes messages matching known scam patterns (needs Message Content intent).', inline: false },
+      { name: 'Impersonation guard', value: 'Alerts mod log with **Ban / Kick / Mute** buttons when impersonators are detected.', inline: false },
+      { name: 'Scam filter', value: 'Auto-deletes scam messages and posts mod log with **Ban / Kick / Mute** buttons.', inline: false },
       { name: 'Raid protection', value: `Flags when **${config.moderation.raidJoinThreshold}+** members join within **${config.moderation.raidWindowSeconds}s**.`, inline: false },
       { name: 'New account alert', value: `Flags accounts younger than **${config.moderation.newAccountMaxDays} days** on join.`, inline: false },
       { name: 'Welcome', value: 'New members get a welcome message in `CHANNEL_WELCOME` when set.', inline: false },
+      { name: 'API health', value: 'Alerts mod log immediately when Finnhub or Yahoo goes down (recovers too).', inline: false },
+      { name: 'Daily heartbeat', value: '8:00 AM health summary in `CHANNEL_ADMIN_HEALTH`.', inline: false },
     ],
   },
 };

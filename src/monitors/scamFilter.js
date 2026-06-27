@@ -2,6 +2,7 @@ import { Events, PermissionFlagsBits } from 'discord.js';
 import { config } from '../config.js';
 import { detectScamContent } from '../utils/scamPatterns.js';
 import { postModLog } from '../utils/modLog.js';
+import { buildModActionRow } from '../utils/modActionButtons.js';
 
 export function startScamFilter(client) {
   if (!config.moderation.scamFilter) {
@@ -30,6 +31,7 @@ export function startScamFilter(client) {
           { name: 'Content', value: combined.slice(0, 900) || '(empty)', inline: false },
         ],
         thumbnail: message.author.displayAvatarURL(),
+        components: [buildModActionRow(message.author.id)],
       });
 
       console.log(`[scam-filter] Deleted message from ${message.author.tag} — ${match}`);

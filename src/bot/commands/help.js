@@ -30,6 +30,7 @@ const PAGES = {
       { name: '/flow', value: 'Live EQH/EQL scan for SPY, SPX, QQQ', inline: true },
       { name: '/levels', value: 'All tickers in one view', inline: true },
       { name: '/quote', value: 'Quick price quote', inline: true },
+      { name: '/earnings', value: 'Upcoming earnings date + estimates', inline: true },
       { name: '/news', value: 'Latest headlines (commands channel, only you see it)', inline: true },
       { name: '/breakeven', value: 'Options R/R calculator', inline: true },
     ],
@@ -43,7 +44,9 @@ const PAGES = {
       { name: 'Morning Briefing', value: '9:25 AM — gap, macro, levels', inline: false },
       { name: 'Market Session', value: '9:30 open, 3:00 power hour, 4:00 close', inline: false },
       { name: 'IV Monitor', value: 'Volatility extremes on watchlist', inline: false },
-      { name: 'Economic Calendar', value: 'CPI, FOMC, NFP warnings', inline: false },
+      { name: 'Economic calendar', value: 'CPI, FOMC, NFP warnings', inline: false },
+      { name: 'Earnings calendar', value: 'Monday 7:30 AM — this week\'s earnings for watchlist tickers', inline: false },
+      { name: 'End-of-day recap', value: '4:05 PM — close, day range, swept levels', inline: false },
     ],
   },
 };

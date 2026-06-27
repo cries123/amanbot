@@ -2,6 +2,7 @@ import { Events } from 'discord.js';
 import { config } from '../config.js';
 import { detectImpersonation, formatImpersonationReason } from '../utils/impersonation.js';
 import { postModLog } from '../utils/modLog.js';
+import { buildModActionRow } from '../utils/modActionButtons.js';
 
 const recentlyAlerted = new Set();
 
@@ -88,5 +89,6 @@ async function sendAlert(member, rule, reason) {
       { name: 'Details', value: reason, inline: false },
     ],
     thumbnail: member.user.displayAvatarURL(),
+    components: [buildModActionRow(member.id)],
   });
 }
