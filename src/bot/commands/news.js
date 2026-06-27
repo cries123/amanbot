@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { config } from '../../config.js';
 import { fetchTickerNews } from '../../services/news.js';
+import { assertCommandsChannel, CommandsChannelError } from '../../utils/commandsChannel.js';
 
 function formatRelativeTime(dateInput) {
   const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
@@ -45,7 +46,7 @@ function buildNewsEmbed({ symbol, articles, source }) {
 
 export const data = new SlashCommandBuilder()
   .setName('news')
-  .setDescription('Get live market news for a ticker')
+  .setDescription('Get live market news for a ticker (commands channel only)')
   .addStringOption((opt) =>
     opt.setName('ticker').setDescription('Stock ticker (e.g. NVDA, SPY)').setRequired(true),
   )
@@ -54,6 +55,14 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
+  try {
+    assertCommandsChannel(interaction);
+  } catch (err) {
+    const message = err instanceof CommandsChannelError ? err.message : 'Wrong channel.';
+    await interaction.reply({ content: message, ephemeral: true });
+    return;
+  }
+
   if (!config.apis.finnhub) {
     await interaction.reply({ content: 'FINNHUB_API_KEY is not configured in `.env`.', ephemeral: true });
     return;
@@ -62,7 +71,7 @@ export async function execute(interaction) {
   const ticker = interaction.options.getString('ticker', true);
   const count = interaction.options.getInteger('count') ?? 5;
 
-  await interaction.deferReply();
+  await interaction.deferReply({ ephemeral: true });
 
   try {
     const result = await fetchTickerNews(ticker, count);

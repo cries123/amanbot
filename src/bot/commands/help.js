@@ -29,7 +29,7 @@ const PAGES = {
       { name: '/flow', value: 'Live EQH/EQL scan for SPY, SPX, QQQ', inline: true },
       { name: '/levels', value: 'All tickers in one view', inline: true },
       { name: '/quote', value: 'Quick price quote', inline: true },
-      { name: '/news', value: 'Latest headlines', inline: true },
+      { name: '/news', value: 'Latest headlines (commands channel, only you see it)', inline: true },
       { name: '/breakeven', value: 'Options R/R calculator', inline: true },
     ],
   },
