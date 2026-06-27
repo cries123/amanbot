@@ -28,7 +28,6 @@ async function sendUserAlert(client, userId, embed) {
 
 export async function deliverWatchlistAlerts(client, { ticker, timeframe, signal, channelId, channelSend, guildId }) {
   const alertKey = buildAlertKey(ticker, timeframe, signal);
-  const embed = buildWatchlistAlertEmbed({ ticker, signal, timeframe });
   const isUpdate = Boolean(signal.swept || signal.invalidated);
   const existing = await getAlertsForKey(alertKey);
 
@@ -36,12 +35,15 @@ export async function deliverWatchlistAlerts(client, { ticker, timeframe, signal
     await updateAlertStatus(alertKey, signal.invalidated ? 'invalidated' : 'swept');
     for (const row of existing) {
       if (row.user_id === 'channel') continue;
+      const settings = await getUserSettings(row.user_id);
+      const embed = buildWatchlistAlertEmbed({ ticker, signal, timeframe, timezone: settings.timezone });
       await editChannelMessage(client, row.dm_channel_id, row.message_id, { embeds: [embed] }).catch(() => {});
     }
 
     const channelRows = await getAlertsForKey(`${alertKey}:channel`);
+    const channelEmbed = buildWatchlistAlertEmbed({ ticker, signal, timeframe });
     for (const row of channelRows) {
-      await editChannelMessage(client, row.dm_channel_id, row.message_id, { embeds: [embed] }).catch(() => {});
+      await editChannelMessage(client, row.dm_channel_id, row.message_id, { embeds: [channelEmbed] }).catch(() => {});
     }
 
     return { alertKey, dms: existing.length, updated: true };
@@ -57,6 +59,8 @@ export async function deliverWatchlistAlerts(client, { ticker, timeframe, signal
 
   for (const userId of watchers) {
     try {
+      const settings = await getUserSettings(userId);
+      const embed = buildWatchlistAlertEmbed({ ticker, signal, timeframe, timezone: settings.timezone });
       const msg = await sendUserAlert(client, userId, embed);
       if (!msg?.id) continue;
 
@@ -74,6 +78,7 @@ export async function deliverWatchlistAlerts(client, { ticker, timeframe, signal
   }
 
   if (channelId && channelSend && DEFAULT_TICKERS.has(ticker)) {
+    const embed = buildWatchlistAlertEmbed({ ticker, signal, timeframe });
     const msg = await channelSend(channelId, { embeds: [embed] });
     if (msg?.id) {
       await saveUserAlert({

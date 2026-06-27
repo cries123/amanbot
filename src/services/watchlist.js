@@ -1,5 +1,6 @@
 import { getPool, query } from '../database/db.js';
 import { config } from '../config.js';
+import { DEFAULT_TIMEZONE, isValidTimezone } from '../utils/time.js';
 
 const memoryWatchlists = new Map();
 const memoryAlertPrefs = new Map();
@@ -7,12 +8,21 @@ const memoryAlertPrefs = new Map();
 export const ALERT_TYPES = ['eqh', 'eql', 'fvg', 'volume'];
 export const DELIVERY_MODES = ['dm', 'channel'];
 
+export const TIMEZONE_OPTIONS = [
+  { id: 'America/New_York', label: 'Eastern (ET)' },
+  { id: 'America/Chicago', label: 'Central (CT)' },
+  { id: 'America/Denver', label: 'Mountain (MT)' },
+  { id: 'America/Los_Angeles', label: 'Pacific (PT)' },
+  { id: 'UTC', label: 'UTC' },
+];
+
 const DEFAULT_SETTINGS = {
   eqh: true,
   eql: true,
   fvg: true,
   volume: true,
   deliveryMode: 'dm',
+  timezone: DEFAULT_TIMEZONE,
 };
 
 export function signalToAlertType(signal) {
@@ -133,8 +143,8 @@ async function saveUserSettings(userId, settings) {
   const db = getPool();
   if (db) {
     await query(
-      `INSERT INTO user_alert_prefs (user_id, eqh, eql, fvg, volume, delivery_mode, thread_id)
-       VALUES ($1, $2, $3, $4, $5, $6, NULL)
+      `INSERT INTO user_alert_prefs (user_id, eqh, eql, fvg, volume, delivery_mode, thread_id, timezone)
+       VALUES ($1, $2, $3, $4, $5, $6, NULL, $7)
        ON CONFLICT (user_id)
        DO UPDATE SET
          eqh = EXCLUDED.eqh,
@@ -142,8 +152,9 @@ async function saveUserSettings(userId, settings) {
          fvg = EXCLUDED.fvg,
          volume = EXCLUDED.volume,
          delivery_mode = EXCLUDED.delivery_mode,
-         thread_id = NULL`,
-      [userId, settings.eqh, settings.eql, settings.fvg, settings.volume, settings.deliveryMode],
+         thread_id = NULL,
+         timezone = EXCLUDED.timezone`,
+      [userId, settings.eqh, settings.eql, settings.fvg, settings.volume, settings.deliveryMode, settings.timezone],
     );
     return settings;
   }
@@ -161,6 +172,7 @@ function rowToSettings(row) {
     fvg: row.fvg,
     volume: row.volume,
     deliveryMode: DELIVERY_MODES.includes(mode) ? mode : 'dm',
+    timezone: isValidTimezone(row.timezone) ? row.timezone : DEFAULT_TIMEZONE,
   };
 }
 
@@ -168,7 +180,7 @@ export async function getUserSettings(userId) {
   const db = getPool();
   if (db) {
     const { rows } = await query(
-      'SELECT eqh, eql, fvg, volume, delivery_mode, thread_id FROM user_alert_prefs WHERE user_id = $1',
+      'SELECT eqh, eql, fvg, volume, delivery_mode, thread_id, timezone FROM user_alert_prefs WHERE user_id = $1',
       [userId],
     );
     if (!rows.length) return { ...DEFAULT_SETTINGS };
@@ -202,6 +214,16 @@ export async function activateChannelDelivery(userId) {
     throw new Error('Alerts channel is not set up yet. Ask an admin to configure CHANNEL_WATCHLIST_ALERTS.');
   }
   return setDeliveryMode(userId, 'channel');
+}
+
+export async function setUserTimezone(userId, timezone) {
+  if (!isValidTimezone(timezone)) {
+    throw new Error('Invalid timezone. Use an IANA name like America/Chicago or pick a preset.');
+  }
+
+  const settings = await getUserSettings(userId);
+  settings.timezone = timezone;
+  return saveUserSettings(userId, settings);
 }
 
 export async function toggleAlertPref(userId, alertType) {

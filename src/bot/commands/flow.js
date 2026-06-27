@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { config } from '../../config.js';
 import { scanTickerWicks } from '../../services/smcScanner.js';
+import { getUserSettings } from '../../services/watchlist.js';
 import { buildWickLevelEmbed } from '../../utils/embeds.js';
 
 const TICKER_CHOICES = [
@@ -39,9 +40,10 @@ export async function execute(interaction) {
 
   try {
     const result = await scanTickerWicks(ticker, { timeframe, live: true, withSweepDetection: true });
+    const { timezone } = await getUserSettings(interaction.user.id);
     const embeds = [
-      ...result.eql.map((level) => buildWickLevelEmbed({ ticker: result.label, level, timeframe })),
-      ...result.eqh.map((level) => buildWickLevelEmbed({ ticker: result.label, level, timeframe })),
+      ...result.eql.map((level) => buildWickLevelEmbed({ ticker: result.label, level, timeframe, timezone })),
+      ...result.eqh.map((level) => buildWickLevelEmbed({ ticker: result.label, level, timeframe, timezone })),
     ];
 
     if (embeds.length === 0) {

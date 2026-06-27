@@ -71,11 +71,13 @@ export async function initDatabase() {
       fvg BOOLEAN NOT NULL DEFAULT TRUE,
       volume BOOLEAN NOT NULL DEFAULT TRUE,
       delivery_mode VARCHAR(16) NOT NULL DEFAULT 'dm',
-      thread_id VARCHAR(32)
+      thread_id VARCHAR(32),
+      timezone VARCHAR(64) NOT NULL DEFAULT 'America/New_York'
     );
 
     ALTER TABLE user_alert_prefs ADD COLUMN IF NOT EXISTS delivery_mode VARCHAR(16) NOT NULL DEFAULT 'dm';
     ALTER TABLE user_alert_prefs ADD COLUMN IF NOT EXISTS thread_id VARCHAR(32);
+    ALTER TABLE user_alert_prefs ADD COLUMN IF NOT EXISTS timezone VARCHAR(64) NOT NULL DEFAULT 'America/New_York';
   `);
 
   console.log('[db] Schema ready');

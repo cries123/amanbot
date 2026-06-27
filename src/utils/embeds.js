@@ -1,5 +1,5 @@
 import { EmbedBuilder } from 'discord.js';
-import { formatEstTime } from './time.js';
+import { formatEstTime, formatTimeInZone, getTimezoneAbbr, DEFAULT_TIMEZONE } from './time.js';
 
 const SMC_COLORS = {
   EQH: 0xe74c3c,
@@ -19,11 +19,12 @@ const SMC_LABELS = {
 const BULL_COLOR = 0x2ecc71;
 const BEAR_COLOR = 0xe74c3c;
 
-export function buildWickLevelEmbed({ ticker, level, timeframe = '1h' }) {
+export function buildWickLevelEmbed({ ticker, level, timeframe = '1h', timezone = DEFAULT_TIMEZONE }) {
   const isEql = level.structure === 'EQL';
   const swept = Boolean(level.swept);
+  const tzAbbr = getTimezoneAbbr(timezone, level.formationTime);
   const touchList = (level.touchTimes ?? [])
-    .map((t) => formatEstTime(t))
+    .map((t) => formatTimeInZone(t, timezone))
     .join('\n');
 
   const titleSuffix = swept ? ' — Swept' : '';
@@ -34,12 +35,12 @@ export function buildWickLevelEmbed({ ticker, level, timeframe = '1h' }) {
     { name: 'Touches', value: String(level.touches), inline: true },
     { name: 'Timeframe', value: `\`${timeframe}\``, inline: true },
     { name: 'Status', value: swept ? '**Swept**' : 'Active', inline: true },
-    { name: 'Last Touch (EST)', value: formatEstTime(level.formationTime), inline: true },
-    { name: 'Touch Times (EST)', value: touchList || 'N/A', inline: false },
+    { name: `Last Touch (${tzAbbr})`, value: formatTimeInZone(level.formationTime, timezone), inline: true },
+    { name: `Touch Times (${tzAbbr})`, value: touchList || 'N/A', inline: false },
   ];
 
   if (swept && level.barTime) {
-    fields.splice(5, 0, { name: 'Swept At (EST)', value: formatEstTime(level.barTime), inline: true });
+    fields.splice(5, 0, { name: `Swept At (${tzAbbr})`, value: formatTimeInZone(level.barTime, timezone), inline: true });
   }
 
   return new EmbedBuilder()
@@ -52,11 +53,12 @@ export function buildWickLevelEmbed({ ticker, level, timeframe = '1h' }) {
       : (level.formationTime ? new Date(level.formationTime * 1000) : new Date()));
 }
 
-export function buildWatchlistAlertEmbed({ ticker, signal, timeframe = '5m' }) {
+export function buildWatchlistAlertEmbed({ ticker, signal, timeframe = '5m', timezone = DEFAULT_TIMEZONE }) {
   const swept = Boolean(signal.swept);
   const invalidated = Boolean(signal.invalidated);
   const isBull = signal.direction === 'bullish';
   const structure = signal.structure ?? signal.type;
+  const tzAbbr = getTimezoneAbbr(timezone, signal.formationTime ?? signal.barTime);
 
   let title = `${ticker} — ${signal.setupType ?? structure}`;
   if (swept) title += ' — Swept';
@@ -81,8 +83,8 @@ export function buildWatchlistAlertEmbed({ ticker, signal, timeframe = '5m' }) {
   if (signal.gapPct) fields.push({ name: 'Gap', value: `\`${signal.gapPct.toFixed(3)}%\``, inline: true });
   if (signal.volRatio) fields.push({ name: 'Volume', value: `\`${signal.volRatio}x\` avg`, inline: true });
   if (signal.price != null) fields.push({ name: 'Price', value: `\`$${signal.price.toFixed(2)}\``, inline: true });
-  if (signal.formationTime) fields.push({ name: 'Formed (EST)', value: formatEstTime(signal.formationTime), inline: true });
-  if (swept && signal.barTime) fields.push({ name: 'Swept (EST)', value: formatEstTime(signal.barTime), inline: true });
+  if (signal.formationTime) fields.push({ name: `Formed (${tzAbbr})`, value: formatTimeInZone(signal.formationTime, timezone), inline: true });
+  if (swept && signal.barTime) fields.push({ name: `Swept (${tzAbbr})`, value: formatTimeInZone(signal.barTime, timezone), inline: true });
 
   return new EmbedBuilder()
     .setTitle(title)

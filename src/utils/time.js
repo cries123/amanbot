@@ -1,10 +1,39 @@
-export function formatEstTime(unixSeconds) {
+export const DEFAULT_TIMEZONE = 'America/New_York';
+
+export function isValidTimezone(timeZone) {
+  if (!timeZone || typeof timeZone !== 'string') return false;
+  try {
+    Intl.DateTimeFormat('en-US', { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getTimezoneAbbr(timeZone, unixSeconds = Math.floor(Date.now() / 1000)) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      timeZoneName: 'short',
+    }).formatToParts(new Date(unixSeconds * 1000));
+    return parts.find((part) => part.type === 'timeZoneName')?.value ?? timeZone;
+  } catch {
+    return timeZone;
+  }
+}
+
+export function formatTimeInZone(unixSeconds, timeZone = DEFAULT_TIMEZONE) {
+  const zone = isValidTimezone(timeZone) ? timeZone : DEFAULT_TIMEZONE;
   const formatted = new Date(unixSeconds * 1000).toLocaleString('en-US', {
-    timeZone: 'America/New_York',
+    timeZone: zone,
     hour: 'numeric',
     minute: '2-digit',
   });
-  return `${formatted} EST`;
+  return `${formatted} ${getTimezoneAbbr(zone, unixSeconds)}`;
+}
+
+export function formatEstTime(unixSeconds) {
+  return formatTimeInZone(unixSeconds, DEFAULT_TIMEZONE);
 }
 
 /** @deprecated use formatEstTime */

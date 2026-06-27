@@ -15,7 +15,8 @@ const PAGES = {
     description: 'Personal ticker alerts delivered to your DMs.',
     color: 0x3498db,
     fields: [
-      { name: 'Setup', value: 'Run `/watchlist` — **Add**, **Remove**, **List**, **Alert Types**, **Delivery**', inline: false },
+      { name: 'Setup', value: 'Run `/watchlist` — **Add**, **Remove**, **List**, **Alert Types**, **Delivery**, **Settings**', inline: false },
+      { name: 'Settings', value: 'Pick your timezone — times in alerts and `/flow` show in your zone', inline: false },
       { name: 'Delivery', value: '**DM** (private) or **Alerts Channel** (ping in server — no DMs needed)', inline: false },
       { name: 'Alert types', value: '**EQH** — equal high wicks\n**EQL** — equal low wicks\n**FVG** — fair value gaps\n**Volume** — unusual volume spikes\nToggle any off in **Alert Types**', inline: false },
       { name: 'Updates', value: 'The same DM embed updates when a level is **swept** or **invalidated**.', inline: false },

@@ -16,9 +16,12 @@ import {
   toggleAlertPref,
   activateDmDelivery,
   activateChannelDelivery,
+  setUserTimezone,
+  TIMEZONE_OPTIONS,
 } from '../../services/watchlist.js';
 import { config } from '../../config.js';
 import { hasDatabaseUrl } from '../../database/db.js';
+import { formatTimeInZone } from '../../utils/time.js';
 
 const ALERT_LABELS = {
   eqh: { name: 'EQH', desc: 'Equal high wicks' },
@@ -40,7 +43,26 @@ function navRow(active = 'home') {
 function overviewRow(active = 'home') {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('wl:home').setLabel('Overview').setStyle(active === 'home' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('wl:settings').setLabel('Settings').setStyle(active === 'settings' ? ButtonStyle.Primary : ButtonStyle.Secondary),
   );
+}
+
+function timezoneRow(settings) {
+  return new ActionRowBuilder().addComponents(
+    ...TIMEZONE_OPTIONS.map(({ id, label }) =>
+      new ButtonBuilder()
+        .setCustomId(`wl:tz:${id}`)
+        .setLabel(`${label.split(' ')[0]}${settings.timezone === id ? ' ✓' : ''}`)
+        .setStyle(settings.timezone === id ? ButtonStyle.Success : ButtonStyle.Secondary),
+    ),
+  );
+}
+
+function formatTimezone(settings) {
+  const match = TIMEZONE_OPTIONS.find((tz) => tz.id === settings.timezone);
+  const label = match?.label ?? settings.timezone;
+  const sample = formatTimeInZone(Math.floor(Date.now() / 1000), settings.timezone);
+  return `**${label}** — e.g. ${sample}`;
 }
 
 function alertToggleRow(settings) {
@@ -125,6 +147,25 @@ export async function buildWatchlistPayload(page, userId) {
     return { embeds: [embed], components };
   }
 
+  if (page === 'settings') {
+    components.push(timezoneRow(settings));
+    components.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('wl:customtz').setLabel('Custom Timezone').setStyle(ButtonStyle.Secondary),
+    ));
+
+    const embed = new EmbedBuilder()
+      .setTitle('Your Settings')
+      .setColor(0x1abc9c)
+      .setDescription('Customize how times appear in your alerts and `/flow` results.')
+      .addFields(
+        { name: 'Timezone', value: formatTimezone(settings), inline: false },
+        { name: 'Tip', value: 'Market scanners still run on **US market hours (ET)**. This only changes how times display for you.', inline: false },
+      )
+      .setFooter({ text: 'Pick a preset or use Custom for any IANA timezone' });
+
+    return { embeds: [embed], components };
+  }
+
   if (page === 'delivery') {
     components.push(deliveryToggleRow(settings));
 
@@ -148,6 +189,7 @@ export async function buildWatchlistPayload(page, userId) {
       { name: 'Add / Remove', value: 'Use **Add** or **Remove** to manage tickers (up to 15)', inline: false },
       { name: 'Alert types', value: formatAlertTypes(settings), inline: false },
       { name: 'Delivery', value: formatDeliveryMode(settings), inline: false },
+      { name: 'Timezone', value: formatTimezone(settings), inline: false },
       { name: 'DMs disabled?', value: `If you don't allow DMs from server members, go to **Delivery** and pick **Alerts Channel** instead of **DM**.`, inline: false },
       { name: 'Your tickers', value: tickers.length ? tickers.join(', ') : '_None yet — click Add_', inline: false },
       { name: 'Updates', value: 'The same alert embed updates when a level is **swept** or **invalidated**.', inline: false },
@@ -214,6 +256,23 @@ export function buildRemoveModal() {
     );
 }
 
+export function buildTimezoneModal() {
+  return new ModalBuilder()
+    .setCustomId('wl:modal:timezone')
+    .setTitle('Custom Timezone')
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('timezone')
+          .setLabel('IANA timezone')
+          .setPlaceholder('America/Chicago, Europe/London, Asia/Tokyo...')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(64),
+      ),
+    );
+}
+
 export async function handleWatchlistButton(interaction) {
   const id = interaction.customId;
 
@@ -231,6 +290,19 @@ export async function handleWatchlistButton(interaction) {
     const alertType = id.replace('wl:toggle:', '');
     await toggleAlertPref(interaction.user.id, alertType);
     const payload = await buildWatchlistPayload('alerts', interaction.user.id);
+    await interaction.update(payload);
+    return;
+  }
+
+  if (id === 'wl:customtz') {
+    await interaction.showModal(buildTimezoneModal());
+    return;
+  }
+
+  if (id.startsWith('wl:tz:')) {
+    const timezone = id.replace('wl:tz:', '');
+    await setUserTimezone(interaction.user.id, timezone);
+    const payload = await buildWatchlistPayload('settings', interaction.user.id);
     await interaction.update(payload);
     return;
   }
@@ -278,6 +350,18 @@ export async function handleWatchlistModal(interaction) {
       const payload = await buildWatchlistPayload('list', interaction.user.id);
       await interaction.reply({
         content: `Removed **${removed}** from your watchlist.`,
+        ...payload,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (interaction.customId === 'wl:modal:timezone') {
+      const timezone = interaction.fields.getTextInputValue('timezone').trim();
+      await setUserTimezone(interaction.user.id, timezone);
+      const payload = await buildWatchlistPayload('settings', interaction.user.id);
+      await interaction.reply({
+        content: `Timezone set to **${timezone}**.`,
         ...payload,
         ephemeral: true,
       });
