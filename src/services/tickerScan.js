@@ -70,6 +70,8 @@ export async function scanTickerAlerts(ticker, timeframe = '5m') {
     scanEnd,
     toleranceDollars: config.monitors.eqhEqlTolerance,
     minBarSeparation: tf.minBarSeparation,
+    minPairSeparation: tf.minPairSeparation,
+    lookback: tf.swingLookback,
     limit: 3,
     withSweepDetection: true,
   });
