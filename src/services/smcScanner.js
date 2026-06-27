@@ -27,8 +27,11 @@ export async function scanTickerWicks(ticker, overrides = {}) {
     scanEnd,
     toleranceDollars: overrides.toleranceDollars ?? config.monitors.eqhEqlTolerance,
     minBarSeparation: overrides.minBarSeparation ?? tf.minBarSeparation,
+    minPairSeparation: overrides.minPairSeparation ?? tf.minPairSeparation,
+    lookback: overrides.lookback ?? tf.swingLookback,
     limit: overrides.limit ?? 3,
     withSweepDetection: overrides.withSweepDetection ?? false,
+    sortMode: overrides.sortMode ?? 'recency',
   });
 
   return {

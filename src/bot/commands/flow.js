@@ -58,6 +58,7 @@ export async function execute(interaction) {
       withSweepDetection: true,
       scanDays: lookbackDays,
       sessionOnly: lookbackDays <= 1,
+      sortMode: 'level',
     });
     const { timezone } = await getUserSettings(interaction.user.id);
     const embeds = [

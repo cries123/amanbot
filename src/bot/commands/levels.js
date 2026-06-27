@@ -27,7 +27,7 @@ export async function execute(interaction) {
     const sections = [];
 
     for (const ticker of TICKERS) {
-      const result = await scanTickerWicks(ticker, { timeframe, live: true });
+      const result = await scanTickerWicks(ticker, { timeframe, live: true, sortMode: 'level' });
       const eql = result.eql.slice(0, 2).map((l) => `$${l.level.toFixed(2)}`).join(', ') || '—';
       const eqh = result.eqh.slice(0, 2).map((l) => `$${l.level.toFixed(2)}`).join(', ') || '—';
 

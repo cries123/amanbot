@@ -298,7 +298,7 @@ function mergeClusters(...clusterGroups) {
   const merged = [];
 
   for (const cluster of all) {
-    const duplicate = merged.find((existing) => {
+    const existingIdx = merged.findIndex((existing) => {
       const overlap = cluster.points.some((p) =>
         existing.points.some((e) => e.index === p.index),
       );
@@ -306,12 +306,104 @@ function mergeClusters(...clusterGroups) {
       return overlap || sameZone;
     });
 
-    if (!duplicate) {
+    if (existingIdx === -1) {
       merged.push(cluster);
+      continue;
+    }
+
+    const existing = merged[existingIdx];
+    const combinedPoints = [...existing.points];
+    for (const p of cluster.points) {
+      if (!combinedPoints.some((e) => e.index === p.index)) combinedPoints.push(p);
+    }
+
+    if (combinedPoints.length > existing.points.length) {
+      const minPrice = Math.min(...combinedPoints.map((p) => p.price));
+      const maxPrice = Math.max(...combinedPoints.map((p) => p.price));
+      merged[existingIdx] = {
+        ...existing,
+        level: round2((minPrice + maxPrice) / 2),
+        minPrice: round2(minPrice),
+        maxPrice: round2(maxPrice),
+        spread: round2(maxPrice - minPrice),
+        spreadPct: round2(percentSpread(minPrice, maxPrice)),
+        touches: combinedPoints.length,
+        points: combinedPoints,
+        lastIndex: Math.max(...combinedPoints.map((p) => p.index)),
+        firstIndex: Math.min(...combinedPoints.map((p) => p.index)),
+      };
     }
   }
 
   return merged;
+}
+
+function enrichClusterTimes(cluster) {
+  return {
+    ...cluster,
+    lastTime: Math.max(...cluster.points.map((p) => p.time)),
+    firstTime: Math.min(...cluster.points.map((p) => p.time)),
+  };
+}
+
+function filterConsecutiveNonSwingEqh(cluster, swingHighIndices) {
+  const indices = [...new Set(cluster.points.map((p) => p.index))].sort((a, b) => a - b);
+  if (indices.length < 2) return false;
+
+  const span = indices[indices.length - 1] - indices[0];
+  if (span > 1) return true;
+
+  return cluster.points.some((p) => swingHighIndices.has(p.index));
+}
+
+function collectEqhClusters(candles, scanStart, scanEnd, {
+  toleranceDollars,
+  lookback,
+  minBarSeparation,
+  sessionExtremeBand,
+}) {
+  const swingHighs = findSwingHighs(candles, lookback)
+    .filter((s) => s.index >= scanStart && s.index <= scanEnd);
+  const swingHighIndices = new Set(swingHighs.map((s) => s.index));
+
+  return mergeClusters(
+    clusterSwingsByDollars(swingHighs, toleranceDollars),
+    findPairClusters(candles, scanStart, scanEnd, 'EQH', toleranceDollars, minBarSeparation),
+    findSessionExtremeClusters(candles, scanStart, scanEnd, 'EQH', sessionExtremeBand),
+  )
+    .filter((cluster) => filterConsecutiveNonSwingEqh(cluster, swingHighIndices))
+    .map(enrichClusterTimes);
+}
+
+function collectEqlClusters(candles, scanStart, scanEnd, {
+  toleranceDollars,
+  lookback,
+  minBarSeparation,
+  minPairSeparation,
+  sessionExtremeBand,
+}) {
+  const swingLows = findSwingLows(candles, lookback)
+    .filter((s) => s.index >= scanStart && s.index <= scanEnd);
+
+  const lowWicks = [];
+  for (let i = scanStart; i <= scanEnd; i++) {
+    lowWicks.push({ price: candles[i].l, index: i, time: candles[i].t });
+  }
+
+  return mergeClusters(
+    clusterSwingsByDollars(swingLows, toleranceDollars),
+    findPairClusters(candles, scanStart, scanEnd, 'EQL', toleranceDollars, minPairSeparation),
+    findSessionExtremeClusters(candles, scanStart, scanEnd, 'EQL', sessionExtremeBand),
+    clusterWickLevels(lowWicks, toleranceDollars, minBarSeparation),
+  ).map(enrichClusterTimes);
+}
+
+function sortClustersForDisplay(clusters, structure, sortMode = 'recency') {
+  if (sortMode === 'level') {
+    const isEqh = structure === 'EQH';
+    return [...clusters].sort((a, b) => (isEqh ? b.level - a.level : a.level - b.level));
+  }
+  return sortClustersByFormation(clusters);
 }
 
 export function rankStructureSignals(signals, structure = 'EQL') {
@@ -344,19 +436,24 @@ export function scanRecentWickLevels(candles, {
   scanEnd,
   toleranceDollars = 0.05,
   minBarSeparation = 1,
+  minPairSeparation,
   limit = 3,
   withSweepDetection = false,
+  lookback = DEFAULT_SWING_LOOKBACK,
+  sessionExtremeBand = 0.4,
+  sortMode = 'recency',
 } = {}) {
   const end = scanEnd ?? candles.length - 1;
   if (end < scanStart) return { eqh: [], eql: [], signals: [] };
 
-  const highWicks = [];
-  const lowWicks = [];
-
-  for (let i = scanStart; i <= end; i++) {
-    highWicks.push({ price: candles[i].h, index: i, time: candles[i].t });
-    lowWicks.push({ price: candles[i].l, index: i, time: candles[i].t });
-  }
+  const pairSeparation = minPairSeparation ?? minBarSeparation;
+  const clusterOpts = {
+    toleranceDollars,
+    lookback,
+    minBarSeparation,
+    minPairSeparation: pairSeparation,
+    sessionExtremeBand,
+  };
 
   const toLevel = (cluster, structure) => ({
     setupType: structure === 'EQH' ? 'Equal Highs (EQH)' : 'Equal Lows (EQL)',
@@ -379,21 +476,11 @@ export function scanRecentWickLevels(candles, {
     ? (cluster, structure) => buildStructureSignal(cluster, structure, candles, end, toleranceDollars)
     : toLevel;
 
-  const byRecency = (a, b) => {
-    const timeA = a.swept ? a.barTime : a.formationTime;
-    const timeB = b.swept ? b.barTime : b.formationTime;
-    return timeB - timeA;
-  };
-
-  const sortFn = withSweepDetection ? byRecency : (a, b) => b.formationTime - a.formationTime;
-
-  const eqh = clusterWickLevels(highWicks, toleranceDollars, minBarSeparation)
-    .sort(sortFn)
+  const eqh = sortClustersForDisplay(collectEqhClusters(candles, scanStart, end, clusterOpts), 'EQH', sortMode)
     .slice(0, limit)
     .map((cluster) => mapCluster(cluster, 'EQH'));
 
-  const eql = clusterWickLevels(lowWicks, toleranceDollars, minBarSeparation)
-    .sort(sortFn)
+  const eql = sortClustersForDisplay(collectEqlClusters(candles, scanStart, end, clusterOpts), 'EQL', sortMode)
     .slice(0, limit)
     .map((cluster) => mapCluster(cluster, 'EQL'));
 
