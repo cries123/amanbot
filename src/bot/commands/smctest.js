@@ -1,15 +1,9 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { config } from '../../config.js';
 import { scanTickerWicks } from '../../services/smcScanner.js';
+import { getAllWatchedTickers } from '../../services/watchlist.js';
 import { formatYahooError } from '../../services/yahooMarket.js';
 import { buildWickLevelEmbed } from '../../utils/embeds.js';
-
-const TICKER_CHOICES = [
-  { name: 'SPY', value: 'SPY' },
-  { name: 'SPX', value: 'SPX' },
-  { name: 'QQQ', value: 'QQQ' },
-  { name: 'All (SPY, SPX, QQQ)', value: 'ALL' },
-];
 
 const TIMEFRAME_CHOICES = [
   { name: '5 minutes', value: '5m' },
@@ -24,8 +18,7 @@ export const data = new SlashCommandBuilder()
   .addStringOption((opt) =>
     opt
       .setName('ticker')
-      .setDescription('Ticker to scan (default: all)')
-      .addChoices(...TICKER_CHOICES),
+      .setDescription('Ticker to scan, or leave blank for all watched tickers'),
   )
   .addStringOption((opt) =>
     opt
@@ -40,11 +33,16 @@ export async function execute(interaction) {
     return;
   }
 
-  const selection = interaction.options.getString('ticker') ?? 'ALL';
+  const tickerArg = interaction.options.getString('ticker')?.toUpperCase().trim() || null;
   const timeframe = interaction.options.getString('timeframe') ?? '1h';
-  const tickers = selection === 'ALL' ? config.monitors.smcTickers : [selection];
+  const tickers = tickerArg ? [tickerArg] : await getAllWatchedTickers();
 
   await interaction.deferReply({ ephemeral: true });
+
+  if (!tickers.length) {
+    await interaction.editReply({ content: 'No tickers on any watchlist yet.' });
+    return;
+  }
 
   const summary = [];
   const embeds = [];

@@ -36,7 +36,7 @@ export function startEarningsCalendar(client, sendToChannel) {
           { name: 'Reports', value: String(entries.length), inline: true },
         )
         .setColor(0x9b59b6)
-        .setFooter({ text: 'Finnhub • Watchlist + SPY/SPX/QQQ • Not financial advice' })
+        .setFooter({ text: 'Finnhub • Watchlist tickers • Not financial advice' })
         .setTimestamp();
 
       await sendToChannel(client, channelId, { embeds: [embed] });

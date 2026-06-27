@@ -4,8 +4,6 @@ import { getWatchersForTickerAlert, getUserSettings, signalToAlertType } from '.
 import { buildAlertKey, saveUserAlert, getAlertsForKey, updateAlertStatus } from './alertTracker.js';
 import { config } from '../config.js';
 
-const DEFAULT_TICKERS = new Set(['SPY', 'SPX', 'QQQ']);
-
 async function sendUserAlert(client, userId, embed) {
   const settings = await getUserSettings(userId);
 
@@ -74,20 +72,6 @@ export async function deliverWatchlistAlerts(client, { ticker, timeframe, signal
       delivered++;
     } catch (err) {
       console.warn(`[alerts] Delivery failed for ${userId} (${ticker}):`, err.message);
-    }
-  }
-
-  if (channelId && channelSend && DEFAULT_TICKERS.has(ticker)) {
-    const embed = buildWatchlistAlertEmbed({ ticker, signal, timeframe });
-    const msg = await channelSend(channelId, { embeds: [embed] });
-    if (msg?.id) {
-      await saveUserAlert({
-        alertKey: `${alertKey}:channel`,
-        userId: 'channel',
-        dmChannelId: channelId,
-        messageId: msg.id,
-        status: 'active',
-      });
     }
   }
 

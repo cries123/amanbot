@@ -125,18 +125,18 @@ export async function getWatchersForTicker(ticker) {
 
 export async function getAllWatchedTickers() {
   const db = getPool();
-  const base = new Set(config.monitors.smcTickers);
+  const tickers = new Set();
 
   if (db) {
     const { rows } = await query('SELECT DISTINCT ticker FROM user_watchlists');
-    for (const row of rows) base.add(row.ticker);
-    return [...base];
+    for (const row of rows) tickers.add(row.ticker);
+    return [...tickers].sort();
   }
 
-  for (const tickers of memoryWatchlists.values()) {
-    for (const t of tickers) base.add(t);
+  for (const list of memoryWatchlists.values()) {
+    for (const t of list) tickers.add(t);
   }
-  return [...base];
+  return [...tickers].sort();
 }
 
 async function saveUserSettings(userId, settings) {
