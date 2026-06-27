@@ -48,3 +48,23 @@ export async function clearWarnings(guildId, userId) {
   }
   memoryWarns.delete(memoryKey(guildId, userId));
 }
+
+export async function getWarnings(guildId, userId) {
+  const db = getPool();
+  if (db) {
+    const { rows } = await query(
+      `SELECT moderator_id, reason, warned_at
+       FROM member_warnings
+       WHERE guild_id = $1 AND user_id = $2
+       ORDER BY warned_at DESC`,
+      [guildId, userId],
+    );
+    return rows;
+  }
+
+  return (memoryWarns.get(memoryKey(guildId, userId)) ?? []).map((w) => ({
+    moderator_id: w.moderatorId,
+    reason: w.reason,
+    warned_at: new Date(w.at),
+  }));
+}
