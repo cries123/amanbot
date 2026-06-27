@@ -2,6 +2,28 @@ import { getPool, query } from '../database/db.js';
 import { config } from '../config.js';
 
 const memoryWatchlists = new Map();
+const memoryAlertPrefs = new Map();
+
+export const ALERT_TYPES = ['eqh', 'eql', 'fvg', 'volume'];
+export const DELIVERY_MODES = ['dm', 'thread'];
+
+const DEFAULT_SETTINGS = {
+  eqh: true,
+  eql: true,
+  fvg: true,
+  volume: true,
+  deliveryMode: 'dm',
+  threadId: null,
+};
+
+export function signalToAlertType(signal) {
+  const s = signal.structure ?? signal.type ?? '';
+  if (s === 'EQH') return 'eqh';
+  if (s === 'EQL') return 'eql';
+  if (s === 'FVG' || s === 'BULL_FVG' || s === 'BEAR_FVG') return 'fvg';
+  if (s === 'VOLUME' || s === 'VOLUME_SPIKE') return 'volume';
+  return null;
+}
 
 function normalizeTicker(ticker) {
   const upper = ticker?.toUpperCase().trim();
@@ -106,4 +128,98 @@ export async function getAllWatchedTickers() {
     for (const t of tickers) base.add(t);
   }
   return [...base];
+}
+
+async function saveUserSettings(userId, settings) {
+  const db = getPool();
+  if (db) {
+    await query(
+      `INSERT INTO user_alert_prefs (user_id, eqh, eql, fvg, volume, delivery_mode, thread_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (user_id)
+       DO UPDATE SET
+         eqh = EXCLUDED.eqh,
+         eql = EXCLUDED.eql,
+         fvg = EXCLUDED.fvg,
+         volume = EXCLUDED.volume,
+         delivery_mode = EXCLUDED.delivery_mode,
+         thread_id = EXCLUDED.thread_id`,
+      [userId, settings.eqh, settings.eql, settings.fvg, settings.volume, settings.deliveryMode, settings.threadId],
+    );
+    return settings;
+  }
+
+  memoryAlertPrefs.set(userId, { ...settings });
+  return settings;
+}
+
+function rowToSettings(row) {
+  if (!row) return { ...DEFAULT_SETTINGS };
+  return {
+    eqh: row.eqh,
+    eql: row.eql,
+    fvg: row.fvg,
+    volume: row.volume,
+    deliveryMode: row.delivery_mode ?? 'dm',
+    threadId: row.thread_id ?? null,
+  };
+}
+
+export async function getUserSettings(userId) {
+  const db = getPool();
+  if (db) {
+    const { rows } = await query(
+      'SELECT eqh, eql, fvg, volume, delivery_mode, thread_id FROM user_alert_prefs WHERE user_id = $1',
+      [userId],
+    );
+    if (!rows.length) return { ...DEFAULT_SETTINGS };
+    return rowToSettings(rows[0]);
+  }
+
+  return { ...(memoryAlertPrefs.get(userId) ?? DEFAULT_SETTINGS) };
+}
+
+export async function getUserAlertPrefs(userId) {
+  const settings = await getUserSettings(userId);
+  return { eqh: settings.eqh, eql: settings.eql, fvg: settings.fvg, volume: settings.volume };
+}
+
+export async function setDeliveryMode(userId, mode, threadId = null) {
+  if (!DELIVERY_MODES.includes(mode)) {
+    throw new Error('Invalid delivery mode.');
+  }
+
+  const settings = await getUserSettings(userId);
+  settings.deliveryMode = mode;
+  settings.threadId = mode === 'thread' ? threadId : null;
+  return saveUserSettings(userId, settings);
+}
+
+export async function toggleAlertPref(userId, alertType) {
+  if (!ALERT_TYPES.includes(alertType)) {
+    throw new Error('Invalid alert type.');
+  }
+
+  const settings = await getUserSettings(userId);
+  settings[alertType] = !settings[alertType];
+  return saveUserSettings(userId, settings);
+}
+
+export async function userWantsAlert(userId, alertType) {
+  if (!alertType) return true;
+  const settings = await getUserSettings(userId);
+  return Boolean(settings[alertType]);
+}
+
+export async function getWatchersForTickerAlert(ticker, alertType) {
+  const watchers = await getWatchersForTicker(ticker);
+  const filtered = [];
+
+  for (const userId of watchers) {
+    if (await userWantsAlert(userId, alertType)) {
+      filtered.push(userId);
+    }
+  }
+
+  return filtered;
 }

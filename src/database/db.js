@@ -63,6 +63,19 @@ export async function initDatabase() {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE (alert_key, user_id)
     );
+
+    CREATE TABLE IF NOT EXISTS user_alert_prefs (
+      user_id VARCHAR(32) PRIMARY KEY,
+      eqh BOOLEAN NOT NULL DEFAULT TRUE,
+      eql BOOLEAN NOT NULL DEFAULT TRUE,
+      fvg BOOLEAN NOT NULL DEFAULT TRUE,
+      volume BOOLEAN NOT NULL DEFAULT TRUE,
+      delivery_mode VARCHAR(16) NOT NULL DEFAULT 'dm',
+      thread_id VARCHAR(32)
+    );
+
+    ALTER TABLE user_alert_prefs ADD COLUMN IF NOT EXISTS delivery_mode VARCHAR(16) NOT NULL DEFAULT 'dm';
+    ALTER TABLE user_alert_prefs ADD COLUMN IF NOT EXISTS thread_id VARCHAR(32);
   `);
 
   console.log('[db] Schema ready');

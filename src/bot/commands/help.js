@@ -6,7 +6,8 @@ const PAGES = {
     description: 'Your trading alert assistant. Use the buttons below to learn about each feature.',
     color: 0xd4af37,
     fields: [
-      { name: 'Quick Start', value: '1. `/watchlist add ticker:SPY`\n2. Enable DMs from server members\n3. Get alerts when setups form', inline: false },
+      { name: 'Quick Start', value: '1. `/watchlist` → click **Add**\n2. Enable DMs from server members\n3. Get alerts when setups form', inline: false },
+      { name: 'Moderators', value: 'Mods can use `/mod` for server moderation help.', inline: false },
     ],
   },
   watchlist: {
@@ -14,10 +15,9 @@ const PAGES = {
     description: 'Personal ticker alerts delivered to your DMs.',
     color: 0x3498db,
     fields: [
-      { name: '/watchlist add', value: 'Add a ticker (up to 15)', inline: false },
-      { name: '/watchlist remove', value: 'Remove a ticker', inline: false },
-      { name: '/watchlist list', value: 'View your watchlist', inline: false },
-      { name: 'Alert types', value: '**EQH** — equal high wicks\n**EQL** — equal low wicks\n**FVG** — fair value gaps\n**Volume** — unusual volume spikes', inline: false },
+      { name: 'Setup', value: 'Run `/watchlist` — **Add**, **Remove**, **List**, **Alert Types**, **Delivery**', inline: false },
+      { name: 'Delivery', value: '**DMs** or **Private Thread** (no DMs needed — safer from scammers)', inline: false },
+      { name: 'Alert types', value: '**EQH** — equal high wicks\n**EQL** — equal low wicks\n**FVG** — fair value gaps\n**Volume** — unusual volume spikes\nToggle any off in **Alert Types**', inline: false },
       { name: 'Updates', value: 'The same DM embed updates when a level is **swept** or **invalidated**.', inline: false },
     ],
   },
@@ -29,8 +29,7 @@ const PAGES = {
       { name: '/flow', value: 'Live EQH/EQL scan for SPY, SPX, QQQ', inline: true },
       { name: '/levels', value: 'All tickers in one view', inline: true },
       { name: '/quote', value: 'Quick price quote', inline: true },
-      { name: '/chart', value: 'Candlestick chart image', inline: true },
-      { name: '/news', value: 'Latest headlines', inline: true },
+      { name: '/news', value: 'Latest headlines (commands channel, only you see it)', inline: true },
       { name: '/breakeven', value: 'Options R/R calculator', inline: true },
     ],
   },
@@ -39,35 +38,22 @@ const PAGES = {
     description: 'Background monitors during market hours (EST).',
     color: 0xe67e22,
     fields: [
-      { name: 'SMC Scanner', value: 'EQH/EQL on 5m, 1h, 4h', inline: false },
+      { name: 'SMC Scanner', value: 'EQH/EQL/FVG/volume on your watchlist tickers', inline: false },
       { name: 'Morning Briefing', value: '9:25 AM — gap, macro, levels', inline: false },
       { name: 'Market Session', value: '9:30 open, 3:00 power hour, 4:00 close', inline: false },
       { name: 'IV Monitor', value: 'Volatility extremes on watchlist', inline: false },
       { name: 'Economic Calendar', value: 'CPI, FOMC, NFP warnings', inline: false },
     ],
   },
-  mod: {
-    title: 'Moderation & Security',
-    description: 'Server protection tools.',
-    color: 0xe74c3c,
-    fields: [
-      { name: '/warn', value: '3 warns = auto 24h mute', inline: true },
-      { name: '/warnings', value: 'View warn history', inline: true },
-      { name: '/purge', value: 'Delete messages', inline: true },
-      { name: 'Auto', value: 'Scam filter, raid alerts, new account flags, impersonation detection', inline: false },
-    ],
-  },
 };
 
 function helpButtons(active = 'home') {
-  const row = new ActionRowBuilder().addComponents(
+  return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('help:watchlist').setLabel('Watchlist').setStyle(active === 'watchlist' ? ButtonStyle.Primary : ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('help:trading').setLabel('Trading').setStyle(active === 'trading' ? ButtonStyle.Primary : ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('help:auto').setLabel('Auto Alerts').setStyle(active === 'auto' ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('help:mod').setLabel('Moderation').setStyle(active === 'mod' ? ButtonStyle.Primary : ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('help:home').setLabel('Home').setStyle(active === 'home' ? ButtonStyle.Primary : ButtonStyle.Secondary),
   );
-  return row;
 }
 
 export function buildHelpPayload(page = 'home') {
