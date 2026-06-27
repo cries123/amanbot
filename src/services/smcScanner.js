@@ -11,7 +11,10 @@ import { scanRecentWickLevels } from '../utils/smcStructure.js';
 export async function scanTickerWicks(ticker, overrides = {}) {
   const timeframe = overrides.timeframe ?? '1h';
   const tf = SMC_TIMEFRAMES[timeframe] ?? SMC_TIMEFRAMES['1h'];
-  const data = await fetchScanCandles(ticker, timeframe);
+  const data = await fetchScanCandles(ticker, timeframe, {
+    scanDays: overrides.scanDays,
+    sessionOnly: overrides.sessionOnly,
+  });
 
   let candles = data.candles;
   if (overrides.live) {

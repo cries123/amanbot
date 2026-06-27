@@ -157,12 +157,14 @@ export async function fetchChartCandles(symbol, { interval = '5m', period1, peri
   throw lastError;
 }
 
-export async function fetchScanCandles(ticker, timeframe = '5m') {
+export async function fetchScanCandles(ticker, timeframe = '5m', options = {}) {
   const { label, symbol } = resolveSymbol(ticker);
   const tf = SMC_TIMEFRAMES[timeframe] ?? SMC_TIMEFRAMES['5m'];
+  const scanDays = options.scanDays ?? tf.scanDays;
+  const sessionOnly = options.sessionOnly ?? (scanDays <= 1 && tf.sessionOnly);
   const period2 = new Date();
   const period1 = new Date();
-  period1.setDate(period1.getDate() - tf.scanDays);
+  period1.setDate(period1.getDate() - scanDays);
 
   const raw = await fetchChartCandles(symbol, {
     interval: tf.interval,
@@ -170,7 +172,7 @@ export async function fetchScanCandles(ticker, timeframe = '5m') {
     period2,
   });
 
-  if (tf.sessionOnly) {
+  if (sessionOnly) {
     const { tradingDate } = getLastTradingSessionRange();
     const window = buildSessionCandleWindow(raw, tradingDate, tf.contextBars);
     if (window.sessionBars === 0) {
@@ -199,7 +201,7 @@ export async function fetchScanCandles(ticker, timeframe = '5m') {
     candles,
     scanStart: 0,
     scanEnd: candles.length - 1,
-    tradingDate: `last ${tf.scanDays} days`,
+    tradingDate: `last ${scanDays} days`,
     sessionBars: candles.length,
     timeframe,
   };

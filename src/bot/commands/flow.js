@@ -32,14 +32,33 @@ export const data = new SlashCommandBuilder()
       .addChoices(...TIMEFRAME_CHOICES),
   );
 
+const FLOW_LOOKBACK_DAYS = {
+  '5m': 1,
+  '1h': 7,
+  '4h': 14,
+};
+
+const FLOW_WINDOW_LABEL = {
+  '5m': 'today (regular session)',
+  '1h': 'past 7 days',
+  '4h': 'past 14 days',
+};
+
 export async function execute(interaction) {
   const ticker = interaction.options.getString('ticker') ?? 'SPY';
   const timeframe = interaction.options.getString('timeframe') ?? '1h';
+  const lookbackDays = FLOW_LOOKBACK_DAYS[timeframe] ?? 1;
 
   await interaction.deferReply();
 
   try {
-    const result = await scanTickerWicks(ticker, { timeframe, live: true, withSweepDetection: true });
+    const result = await scanTickerWicks(ticker, {
+      timeframe,
+      live: true,
+      withSweepDetection: true,
+      scanDays: lookbackDays,
+      sessionOnly: lookbackDays <= 1,
+    });
     const { timezone } = await getUserSettings(interaction.user.id);
     const embeds = [
       ...result.eql.map((level) => buildWickLevelEmbed({ ticker: result.label, level, timeframe, timezone })),
@@ -63,7 +82,7 @@ export async function execute(interaction) {
     }
 
     await interaction.editReply({
-      content: `**${result.label}** \`${timeframe}\` — last **3 EQL** + **3 EQH** wick levels (≤ $${config.monitors.eqhEqlTolerance.toFixed(2)})`,
+      content: `**${result.label}** \`${timeframe}\` — last **3 EQL** + **3 EQH** wick levels (${FLOW_WINDOW_LABEL[timeframe] ?? result.tradingDate}, ≤ $${config.monitors.eqhEqlTolerance.toFixed(2)})`,
       embeds,
     });
   } catch (err) {
