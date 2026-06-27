@@ -1,32 +1,25 @@
 import { buildWatchlistAlertEmbed } from '../utils/embeds.js';
-import { editChannelMessage } from '../bot/client.js';
+import { editChannelMessage, sendToChannel } from '../bot/client.js';
 import { getWatchersForTickerAlert, getUserSettings, signalToAlertType } from './watchlist.js';
-import { ensureUserAlertThread } from './alertThreads.js';
 import { buildAlertKey, saveUserAlert, getAlertsForKey, updateAlertStatus } from './alertTracker.js';
+import { config } from '../config.js';
 
 const DEFAULT_TICKERS = new Set(['SPY', 'SPX', 'QQQ']);
 
-async function sendUserAlert(client, guild, userId, embed) {
+async function sendUserAlert(client, userId, embed) {
   const settings = await getUserSettings(userId);
 
-  if (settings.deliveryMode === 'thread') {
-    if (!guild) {
-      throw new Error('Guild required for thread delivery');
+  if (settings.deliveryMode === 'channel') {
+    const channelId = config.channels.watchlistAlerts;
+    if (!channelId) {
+      throw new Error('CHANNEL_WATCHLIST_ALERTS is not configured');
     }
 
-    let thread;
-    if (settings.threadId) {
-      thread = await client.channels.fetch(settings.threadId).catch(() => null);
-    }
-
-    if (!thread?.isThread()) {
-      const user = await client.users.fetch(userId);
-      const member = await guild.members.fetch(userId).catch(() => null);
-      if (!member) throw new Error('Member not in guild');
-      thread = await ensureUserAlertThread(client, guild, user);
-    }
-
-    return thread.send({ embeds: [embed] });
+    return sendToChannel(client, channelId, {
+      content: `<@${userId}>`,
+      embeds: [embed],
+      allowedMentions: { users: [userId] },
+    });
   }
 
   const user = await client.users.fetch(userId);
@@ -38,10 +31,6 @@ export async function deliverWatchlistAlerts(client, { ticker, timeframe, signal
   const embed = buildWatchlistAlertEmbed({ ticker, signal, timeframe });
   const isUpdate = Boolean(signal.swept || signal.invalidated);
   const existing = await getAlertsForKey(alertKey);
-
-  const guild = guildId
-    ? await client.guilds.fetch(guildId).catch(() => null)
-    : client.guilds.cache.first() ?? null;
 
   if (isUpdate && existing.length) {
     await updateAlertStatus(alertKey, signal.invalidated ? 'invalidated' : 'swept');
@@ -68,7 +57,9 @@ export async function deliverWatchlistAlerts(client, { ticker, timeframe, signal
 
   for (const userId of watchers) {
     try {
-      const msg = await sendUserAlert(client, guild, userId, embed);
+      const msg = await sendUserAlert(client, userId, embed);
+      if (!msg?.id) continue;
+
       await saveUserAlert({
         alertKey,
         userId,

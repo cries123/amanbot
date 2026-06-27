@@ -14,8 +14,9 @@ import {
   getUserWatchlist,
   getUserSettings,
   toggleAlertPref,
+  activateDmDelivery,
+  activateChannelDelivery,
 } from '../../services/watchlist.js';
-import { ensureUserAlertThread, activateDmDelivery } from '../../services/alertThreads.js';
 import { config } from '../../config.js';
 
 const ALERT_LABELS = {
@@ -56,13 +57,17 @@ function deliveryToggleRow(settings) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('wl:delivery:dm')
-      .setLabel(`DMs ${settings.deliveryMode === 'dm' ? '✓' : ''}`)
+      .setLabel(`DM ${settings.deliveryMode === 'dm' ? '✓' : ''}`)
       .setStyle(settings.deliveryMode === 'dm' ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder()
-      .setCustomId('wl:delivery:thread')
-      .setLabel(`Private Thread ${settings.deliveryMode === 'thread' ? '✓' : ''}`)
-      .setStyle(settings.deliveryMode === 'thread' ? ButtonStyle.Success : ButtonStyle.Secondary),
+      .setCustomId('wl:delivery:channel')
+      .setLabel(`Alerts Channel ${settings.deliveryMode === 'channel' ? '✓' : ''}`)
+      .setStyle(settings.deliveryMode === 'channel' ? ButtonStyle.Success : ButtonStyle.Secondary),
   );
+}
+
+function alertsChannelMention() {
+  return config.channels.watchlistAlerts ? `<#${config.channels.watchlistAlerts}>` : '#watchlist-alerts';
 }
 
 function formatAlertTypes(settings) {
@@ -75,10 +80,10 @@ function formatAlertTypes(settings) {
 }
 
 function formatDeliveryMode(settings) {
-  if (settings.deliveryMode === 'thread') {
-    return '**Private Thread** — alerts post in a thread only you can see. No DMs needed.';
+  if (settings.deliveryMode === 'channel') {
+    return `**Alerts Channel** — pings you in ${alertsChannelMention()}. No DMs needed.`;
   }
-  return '**DMs** — alerts sent directly to your Discord messages.';
+  return '**DM** — private alerts sent directly to your Discord messages.';
 }
 
 export async function buildWatchlistPayload(page, userId) {
@@ -95,7 +100,7 @@ export async function buildWatchlistPayload(page, userId) {
         : 'No tickers yet. Click **Add** below to add one.')
       .addFields(
         { name: 'Tickers', value: `${tickers.length}/${config.watchlist.maxPerUser}`, inline: true },
-        { name: 'Delivery', value: settings.deliveryMode === 'thread' ? 'Private Thread' : 'DMs', inline: true },
+        { name: 'Delivery', value: settings.deliveryMode === 'channel' ? 'Alerts Channel' : 'DM', inline: true },
         { name: 'Enabled alerts', value: Object.entries(settings).filter(([k, v]) => ALERT_LABELS[k] && v).map(([k]) => ALERT_LABELS[k].name).join(', ') || 'None', inline: false },
       )
       .setFooter({ text: 'Same alert embed updates when swept or invalidated' });
@@ -124,13 +129,9 @@ export async function buildWatchlistPayload(page, userId) {
 
     const fields = [
       { name: 'Current', value: formatDeliveryMode(settings), inline: false },
-      { name: 'DMs', value: 'Sent to your Discord DMs.\nRequires allowing messages from server members.', inline: true },
-      { name: 'Private Thread', value: 'Bot creates a private thread only you can access.\n**Safer** — no need to open DMs to strangers.', inline: true },
+      { name: 'DM', value: 'Private message from the bot.\nRequires **Allow DMs from server members**.', inline: true },
+      { name: 'Alerts Channel', value: `Posts in ${alertsChannelMention()} and **pings you**.\nUse this if you keep DMs disabled.`, inline: true },
     ];
-
-    if (settings.deliveryMode === 'thread' && settings.threadId) {
-      fields.push({ name: 'Your thread', value: `<#${settings.threadId}>`, inline: false });
-    }
 
     const embed = new EmbedBuilder()
       .setTitle('Alert Delivery')
@@ -150,6 +151,7 @@ export async function buildWatchlistPayload(page, userId) {
       { name: 'Add / Remove', value: 'Use **Add** or **Remove** to manage tickers (up to 15)', inline: false },
       { name: 'Alert types', value: formatAlertTypes(settings), inline: false },
       { name: 'Delivery', value: formatDeliveryMode(settings), inline: false },
+      { name: 'DMs disabled?', value: `If you don't allow DMs from server members, go to **Delivery** and pick **Alerts Channel** instead of **DM**.`, inline: false },
       { name: 'Your tickers', value: tickers.length ? tickers.join(', ') : '_None yet — click Add_', inline: false },
       { name: 'Updates', value: 'The same alert embed updates when a level is **swept** or **invalidated**.', inline: false },
     )
@@ -229,15 +231,14 @@ export async function handleWatchlistButton(interaction) {
     return;
   }
 
-  if (id === 'wl:delivery:thread') {
-    if (!interaction.guild) {
-      await interaction.reply({ content: 'Use this in a server channel to enable private threads.', ephemeral: true });
-      return;
+  if (id === 'wl:delivery:channel') {
+    try {
+      await activateChannelDelivery(interaction.user.id);
+      const payload = await buildWatchlistPayload('delivery', interaction.user.id);
+      await interaction.update(payload);
+    } catch (err) {
+      await interaction.reply({ content: err.message, ephemeral: true });
     }
-
-    await ensureUserAlertThread(interaction.client, interaction.guild, interaction.user);
-    const payload = await buildWatchlistPayload('delivery', interaction.user.id);
-    await interaction.update(payload);
     return;
   }
 

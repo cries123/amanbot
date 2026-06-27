@@ -72,7 +72,7 @@ export function startWatchlistScanner(client, sendToChannel) {
     { timezone: config.timezone },
   );
 
-  console.log('[watchlist-scanner] EQH/EQL/FVG/volume → watchers (DM or private thread) + SMC channel');
+  console.log('[watchlist-scanner] EQH/EQL/FVG/volume → watchers (DM or alerts channel) + SMC channel');
 }
 
 function isMarketHours() {

@@ -5,7 +5,7 @@ const memoryWatchlists = new Map();
 const memoryAlertPrefs = new Map();
 
 export const ALERT_TYPES = ['eqh', 'eql', 'fvg', 'volume'];
-export const DELIVERY_MODES = ['dm', 'thread'];
+export const DELIVERY_MODES = ['dm', 'channel'];
 
 const DEFAULT_SETTINGS = {
   eqh: true,
@@ -13,7 +13,6 @@ const DEFAULT_SETTINGS = {
   fvg: true,
   volume: true,
   deliveryMode: 'dm',
-  threadId: null,
 };
 
 export function signalToAlertType(signal) {
@@ -135,7 +134,7 @@ async function saveUserSettings(userId, settings) {
   if (db) {
     await query(
       `INSERT INTO user_alert_prefs (user_id, eqh, eql, fvg, volume, delivery_mode, thread_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       VALUES ($1, $2, $3, $4, $5, $6, NULL)
        ON CONFLICT (user_id)
        DO UPDATE SET
          eqh = EXCLUDED.eqh,
@@ -143,8 +142,8 @@ async function saveUserSettings(userId, settings) {
          fvg = EXCLUDED.fvg,
          volume = EXCLUDED.volume,
          delivery_mode = EXCLUDED.delivery_mode,
-         thread_id = EXCLUDED.thread_id`,
-      [userId, settings.eqh, settings.eql, settings.fvg, settings.volume, settings.deliveryMode, settings.threadId],
+         thread_id = NULL`,
+      [userId, settings.eqh, settings.eql, settings.fvg, settings.volume, settings.deliveryMode],
     );
     return settings;
   }
@@ -155,13 +154,13 @@ async function saveUserSettings(userId, settings) {
 
 function rowToSettings(row) {
   if (!row) return { ...DEFAULT_SETTINGS };
+  const mode = row.delivery_mode === 'thread' ? 'channel' : (row.delivery_mode ?? 'dm');
   return {
     eqh: row.eqh,
     eql: row.eql,
     fvg: row.fvg,
     volume: row.volume,
-    deliveryMode: row.delivery_mode ?? 'dm',
-    threadId: row.thread_id ?? null,
+    deliveryMode: DELIVERY_MODES.includes(mode) ? mode : 'dm',
   };
 }
 
@@ -184,15 +183,25 @@ export async function getUserAlertPrefs(userId) {
   return { eqh: settings.eqh, eql: settings.eql, fvg: settings.fvg, volume: settings.volume };
 }
 
-export async function setDeliveryMode(userId, mode, threadId = null) {
+export async function setDeliveryMode(userId, mode) {
   if (!DELIVERY_MODES.includes(mode)) {
     throw new Error('Invalid delivery mode.');
   }
 
   const settings = await getUserSettings(userId);
   settings.deliveryMode = mode;
-  settings.threadId = mode === 'thread' ? threadId : null;
   return saveUserSettings(userId, settings);
+}
+
+export async function activateDmDelivery(userId) {
+  return setDeliveryMode(userId, 'dm');
+}
+
+export async function activateChannelDelivery(userId) {
+  if (!config.channels.watchlistAlerts) {
+    throw new Error('Alerts channel is not set up yet. Ask an admin to configure CHANNEL_WATCHLIST_ALERTS.');
+  }
+  return setDeliveryMode(userId, 'channel');
 }
 
 export async function toggleAlertPref(userId, alertType) {
