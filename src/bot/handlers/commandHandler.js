@@ -2,6 +2,7 @@ import { Collection } from 'discord.js';
 import { readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { ModerationError } from '../../utils/moderation.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -47,6 +48,21 @@ export async function handleInteraction(interaction, commands) {
     const { handleHelpButton } = await import('../commands/help.js');
     const payload = handleHelpButton(interaction.customId);
     await interaction.update(payload);
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith('mod:')) {
+    try {
+      const { handleModButton } = await import('../commands/mod.js');
+      await handleModButton(interaction);
+    } catch (err) {
+      const message = err instanceof ModerationError ? err.message : 'You do not have permission to use this.';
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: message, ephemeral: true });
+      } else {
+        await interaction.reply({ content: message, ephemeral: true });
+      }
+    }
     return;
   }
 

@@ -7,6 +7,7 @@ const PAGES = {
     color: 0xd4af37,
     fields: [
       { name: 'Quick Start', value: '1. `/watchlist` → click **Add**\n2. Enable DMs from server members\n3. Get alerts when setups form', inline: false },
+      { name: 'Moderators', value: 'Mods can use `/mod` for server moderation help.', inline: false },
     ],
   },
   watchlist: {
@@ -37,35 +38,22 @@ const PAGES = {
     description: 'Background monitors during market hours (EST).',
     color: 0xe67e22,
     fields: [
-      { name: 'SMC Scanner', value: 'EQH/EQL on 5m, 1h, 4h', inline: false },
+      { name: 'SMC Scanner', value: 'EQH/EQL/FVG/volume on your watchlist tickers', inline: false },
       { name: 'Morning Briefing', value: '9:25 AM — gap, macro, levels', inline: false },
       { name: 'Market Session', value: '9:30 open, 3:00 power hour, 4:00 close', inline: false },
       { name: 'IV Monitor', value: 'Volatility extremes on watchlist', inline: false },
       { name: 'Economic Calendar', value: 'CPI, FOMC, NFP warnings', inline: false },
     ],
   },
-  mod: {
-    title: 'Moderation & Security',
-    description: 'Server protection tools.',
-    color: 0xe74c3c,
-    fields: [
-      { name: '/warn', value: '3 warns = auto 24h mute', inline: true },
-      { name: '/warnings', value: 'View warn history', inline: true },
-      { name: '/purge', value: 'Delete messages', inline: true },
-      { name: 'Auto', value: 'Scam filter, raid alerts, new account flags, impersonation detection', inline: false },
-    ],
-  },
 };
 
 function helpButtons(active = 'home') {
-  const row = new ActionRowBuilder().addComponents(
+  return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('help:watchlist').setLabel('Watchlist').setStyle(active === 'watchlist' ? ButtonStyle.Primary : ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('help:trading').setLabel('Trading').setStyle(active === 'trading' ? ButtonStyle.Primary : ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('help:auto').setLabel('Auto Alerts').setStyle(active === 'auto' ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('help:mod').setLabel('Moderation').setStyle(active === 'mod' ? ButtonStyle.Primary : ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('help:home').setLabel('Home').setStyle(active === 'home' ? ButtonStyle.Primary : ButtonStyle.Secondary),
   );
-  return row;
 }
 
 export function buildHelpPayload(page = 'home') {
